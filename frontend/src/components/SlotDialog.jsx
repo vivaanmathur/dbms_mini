@@ -1,94 +1,77 @@
-import { useState } from "react";
-import Dialog from "@mui/material/Dialog";
-import DialogTitle from "@mui/material/DialogTitle";
-import DialogContent from "@mui/material/DialogContent";
-import DialogActions from "@mui/material/DialogActions";
-import Button from "@mui/material/Button";
-import TextField from "@mui/material/TextField";
-import Typography from "@mui/material/Typography";
-import Alert from "@mui/material/Alert";
-import Divider from "@mui/material/Divider";
-import Box from "@mui/material/Box";
-import Chip from "@mui/material/Chip";
-import { apiPost, getMyFacultyId } from "../api.js";
+import { useEffect, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Check, UserCheck, Ban, Sparkles, CalendarX2, ClipboardCheck } from "lucide-react";
+import { apiGet, apiPost, getMyFacultyId } from "../api.js";
+import { Modal, useToast, initials, nextDateFor, shortDate } from "../ui.jsx";
 
-const DAY_NUMBER = { MON: 1, TUE: 2, WED: 3, THU: 4, FRI: 5, SAT: 6 };
-
-// Turns a Date into "2026-09-23". We build it by hand instead of using
-// toISOString(), because that one changes the date to UTC and in India that
-// can give us yesterday.
-function asYearMonthDay(date) {
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return date.getFullYear() + "-" + month + "-" + day;
-}
-
-// Works out the next date that falls on this lecture's day, so the teacher
-// does not have to hunt for "the next Wednesday" in a calendar.
-function nextDateFor(day) {
-  const date = new Date();
-  for (let i = 0; i < 7; i++) {
-    date.setDate(date.getDate() + 1);
-    if (date.getDay() === DAY_NUMBER[day]) {
-      break;
-    }
-  }
-  return asYearMonthDay(date);
-}
-
+/*
+ * What opens when a lecture on the timetable is clicked.
+ *
+ * Two things can be done here:
+ *   - mark the lecture as conducted, and
+ *   - hand it to another teacher for one date, choosing who yourself.
+ */
 function SlotDialog({ slot, onClose, onChanged }) {
-  // The parent only shows this dialog once a lecture is clicked, so we can
-  // safely work out the default date straight away. For a class we are
-  // covering for somebody else, that date is already fixed.
-  const [date, setDate] = useState(slot.covering_date || nextDateFor(slot.day_of_week));
-  const [reason, setReason] = useState("");
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  const isMine = slot.faculty_id === getMyFacultyId();
-  const isCovering = Boolean(slot.covering_for);
+  const myId = getMyFacultyId();
+  const mine = slot.faculty_id === myId;
+  const covering = Boolean(slot.covering_for);
   const changes = slot.changes || [];
   const logs = slot.logs || [];
 
-  // Am I the substitute who was approved for the date shown in the box?
-  const iAmSubstitute = changes.some(
-    (change) =>
-      change.lecture_date === date &&
-      change.assignment_status === "ASSIGNED" &&
-      change.substitute_faculty_id === getMyFacultyId()
-  );
-  const someoneElseTakesIt = changes.some(
-    (change) => change.lecture_date === date && change.assignment_status === "ASSIGNED"
-  );
+  const [date, setDate] = useState(slot.covering_date || nextDateFor(slot.day_of_week));
+  const [reason, setReason] = useState("");
+  const [mode, setMode] = useState("view");       // view | delegate
+  const [candidates, setCandidates] = useState(null);
+  const [suggested, setSuggested] = useState(null);
+  const [chosen, setChosen] = useState(null);     // null = let the system decide
+  const [busy, setBusy] = useState(false);
+  const toast = useToast();
 
-  async function handleCancel() {
-    setError("");
-    setMessage("");
-    if (reason.trim() === "") {
-      setError("Please write a reason.");
-      return;
-    }
+  // Load who this lecture could be handed to, whenever the date changes.
+  useEffect(() => {
+    if (mode !== "delegate") return;
+    let cancelled = false;
+    setCandidates(null);
+    apiGet(`/delegate/candidates?timetable_slot_id=${slot.timetable_slot_id}&lecture_date=${date}`)
+      .then((data) => {
+        if (cancelled || !data) return;
+        setCandidates(data.candidates);
+        setSuggested(data.suggested_faculty_id);
+      })
+      .catch((err) => toast(err.message, "err"));
+    return () => { cancelled = true; };
+  }, [mode, date, slot.timetable_slot_id]);
+
+  const takenByElse = changes.some(
+    (c) => c.lecture_date === date && c.assignment_status === "ASSIGNED"
+  );
+  const iAmSubstitute = changes.some(
+    (c) => c.lecture_date === date && c.assignment_status === "ASSIGNED"
+         && c.substitute_faculty_id === myId
+  );
+  const canMarkConducted = (mine && !takenByElse) || iAmSubstitute || covering;
+
+  async function handOver() {
+    if (reason.trim() === "") { toast("Please write a reason", "err"); return; }
     setBusy(true);
     try {
       const result = await apiPost("/cancel-lecture", {
         timetable_slot_id: slot.timetable_slot_id,
         lecture_date: date,
-        reason: reason,
+        reason,
+        delegate_to_faculty_id: chosen,
       });
-      setMessage(result.message);
-      setReason("");
+      toast(result.message);
       onChanged();
+      onClose();
     } catch (err) {
-      setError(err.message);
+      toast(err.message, "err");
     } finally {
       setBusy(false);
     }
   }
 
-  async function handleConducted() {
-    setError("");
-    setMessage("");
+  async function markConducted() {
     setBusy(true);
     try {
       const result = await apiPost("/mark-conducted", {
@@ -96,128 +79,184 @@ function SlotDialog({ slot, onClose, onChanged }) {
         lecture_date: date,
         remarks: "",
       });
-      setMessage(result.message);
+      toast(result.message);
       onChanged();
+      onClose();
     } catch (err) {
-      setError(err.message);
+      toast(err.message, "err");
     } finally {
       setBusy(false);
     }
   }
 
+  const footer = mode === "delegate" ? (
+    <>
+      <button className="btn" onClick={() => setMode("view")}>Back</button>
+      <button className="btn btn-primary" onClick={handOver} disabled={busy}>
+        {chosen
+          ? "Send request"
+          : <><Sparkles size={14} /> Let the system choose</>}
+      </button>
+    </>
+  ) : (
+    <>
+      <button className="btn" onClick={onClose}>Close</button>
+      {canMarkConducted && (
+        <button className="btn" onClick={markConducted} disabled={busy}>
+          <ClipboardCheck size={14} /> Mark as conducted
+        </button>
+      )}
+      {mine && (
+        <button className="btn btn-danger" onClick={() => setMode("delegate")}>
+          <CalendarX2 size={14} /> Cannot take it
+        </button>
+      )}
+    </>
+  );
+
   return (
-    <Dialog open={true} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle>
-        {slot.course_code} - {slot.course_name}
-      </DialogTitle>
+    <Modal
+      open
+      onClose={onClose}
+      wide={mode === "delegate"}
+      title={slot.course_code + " · " + slot.course_name}
+      subtitle={`${slot.day_of_week} ${slot.start_time}–${slot.end_time} · Room ${slot.room_number} · Section ${slot.section_name}${slot.lab_batch_code ? " / " + slot.lab_batch_code : ""}`}
+      footer={footer}
+    >
+      <AnimatePresence mode="wait">
+        {mode === "view" ? (
+          <motion.div key="view" className="stack"
+                      initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -12 }} transition={{ duration: 0.18 }}>
 
-      <DialogContent dividers>
-        <Typography variant="body2">
-          <b>Day:</b> {slot.day_of_week}, {slot.start_time} to {slot.end_time}
-        </Typography>
-        <Typography variant="body2">
-          <b>Room:</b> {slot.room_number} ({slot.room_type === "LAB" ? "Lab" : "Classroom"})
-        </Typography>
-        <Typography variant="body2">
-          <b>Class:</b> Section {slot.section_name}
-          {slot.lab_batch_code ? " - lab batch " + slot.lab_batch_code : ""}
-        </Typography>
-        <Typography variant="body2">
-          <b>Teacher:</b> {slot.faculty_name} {isMine ? "(you)" : ""}
-        </Typography>
+            <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+              <span className="chip chip-violet">{slot.faculty_name}{mine ? " (you)" : ""}</span>
+              <span className="chip">{slot.course_type === "PRACTICAL" ? "Lab" : "Theory"}</span>
+              {covering && <span className="chip chip-green">You cover this on {shortDate(slot.covering_date)}</span>}
+            </div>
 
-        {changes.length > 0 && (
-          <Box sx={{ mt: 2 }}>
-            <Typography variant="subtitle2">Cancellations on this lecture</Typography>
-            {changes.map((change) => (
-              <Typography key={change.cancellation_request_id} variant="body2">
-                {change.lecture_date} - cancelled by {change.cancelled_by} ({change.reason}){" "}
-                {change.substitute_name ? (
-                  <Chip
-                    size="small"
-                    color={change.assignment_status === "ASSIGNED" ? "success" : "warning"}
-                    label={
-                      change.substitute_name +
-                      (change.assignment_status === "ASSIGNED" ? " is taking it" : " - not answered yet")
-                    }
-                  />
-                ) : (
-                  <Chip size="small" color="error" label="nobody free" />
+            {covering && (
+              <div className="glass-flat pad-sm tiny">
+                You agreed to take this class instead of <b>{slot.covering_for}</b> on{" "}
+                <b>{shortDate(slot.covering_date)}</b>. Mark it conducted once you have taken it.
+              </div>
+            )}
+
+            {changes.length > 0 && (
+              <div className="stack" style={{ gap: 7 }}>
+                <div className="label">HANDED OVER ON</div>
+                {changes.map((c) => (
+                  <div key={c.cancellation_request_id} className="glass-flat pad-sm tiny">
+                    <b>{shortDate(c.lecture_date)}</b> — {c.cancelled_by} could not take it ({c.reason}).{" "}
+                    {c.substitute_name
+                      ? <span className={"chip " + (c.assignment_status === "ASSIGNED" ? "chip-green" : "chip-amber")}>
+                          {c.substitute_name}{c.assignment_status === "ASSIGNED" ? " is taking it" : " has not replied"}
+                        </span>
+                      : <span className="chip chip-red">nobody free</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {logs.length > 0 && (
+              <div className="stack" style={{ gap: 7 }}>
+                <div className="label">ALREADY CONDUCTED</div>
+                {logs.map((log) => (
+                  <div key={log.lecture_log_id} className="glass-flat pad-sm tiny">
+                    <b>{shortDate(log.lecture_date)}</b> — taken by {log.delivered_by} ({log.actual_hours_taken} hrs)
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="field">
+              <label className="label" htmlFor="slot-date">DATE OF THIS LECTURE</label>
+              <input id="slot-date" className="input" type="date" value={date}
+                     onChange={(e) => setDate(e.target.value)} />
+              <span className="faint tiny">This lecture runs every {slot.day_of_week}.</span>
+            </div>
+
+            {!mine && !covering && (
+              <div className="glass-flat pad-sm tiny muted">
+                This is {slot.faculty_name}'s lecture. Only they can hand it over.
+              </div>
+            )}
+          </motion.div>
+        ) : (
+          <motion.div key="delegate" className="stack"
+                      initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 12 }} transition={{ duration: 0.18 }}>
+
+            <div className="field">
+              <label className="label" htmlFor="hand-date">WHICH DATE</label>
+              <input id="hand-date" className="input" type="date" value={date}
+                     onChange={(e) => { setDate(e.target.value); setChosen(null); }} />
+            </div>
+
+            <div className="field">
+              <label className="label" htmlFor="hand-reason">WHY YOU CANNOT TAKE IT</label>
+              <input id="hand-reason" className="input" value={reason}
+                     onChange={(e) => setReason(e.target.value)}
+                     placeholder="On leave / attending a conference" />
+            </div>
+
+            <div className="field">
+              <div className="between">
+                <span className="label">WHO SHOULD TAKE IT</span>
+                {chosen && (
+                  <button className="btn btn-sm btn-ghost" onClick={() => setChosen(null)}>
+                    Clear choice
+                  </button>
                 )}
-              </Typography>
-            ))}
-          </Box>
+              </div>
+              <span className="faint tiny" style={{ marginBottom: 4 }}>
+                Teachers of this subject are listed first. Pick anyone, or leave it
+                unpicked and the system sends it to the fairest free teacher.
+              </span>
+
+              {candidates === null
+                ? <div className="faint tiny" style={{ padding: 12 }}>Checking who is free...</div>
+                : (
+                  <div className="stack" style={{ gap: 7, maxHeight: 320, overflowY: "auto", paddingRight: 3 }}>
+                    {candidates.map((person, index) => (
+                      <motion.button
+                        key={person.faculty_id}
+                        type="button"
+                        className={"cand" + (chosen === person.faculty_id ? " cand-on" : "")}
+                        disabled={!person.is_free}
+                        onClick={() => setChosen(person.faculty_id)}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.22, delay: Math.min(index * 0.025, 0.3) }}
+                      >
+                        <span className="avatar">{initials(person.name)}</span>
+                        <span style={{ flex: 1, minWidth: 0 }}>
+                          <span className="row" style={{ gap: 6, flexWrap: "wrap" }}>
+                            <b style={{ fontSize: 13.3 }}>{person.name}</b>
+                            {person.teaches_subject && (
+                              <span className="chip chip-violet">teaches {slot.course_code}</span>
+                            )}
+                            {person.faculty_id === suggested && !chosen && (
+                              <span className="chip chip-green"><Sparkles size={10} /> suggested</span>
+                            )}
+                          </span>
+                          <span className="tiny faint" style={{ display: "block" }}>
+                            {person.reason} · {person.lectures_taken} lectures taken
+                          </span>
+                        </span>
+                        {chosen === person.faculty_id
+                          ? <Check size={16} color="#a5b4fc" />
+                          : person.is_free ? <UserCheck size={15} className="faint" />
+                                           : <Ban size={15} className="faint" />}
+                      </motion.button>
+                    ))}
+                  </div>
+                )}
+            </div>
+          </motion.div>
         )}
-
-        {logs.length > 0 && (
-          <Box sx={{ mt: 2 }}>
-            <Typography variant="subtitle2">Already conducted</Typography>
-            {logs.map((log) => (
-              <Typography key={log.lecture_log_id} variant="body2">
-                {log.lecture_date} - taken by {log.delivered_by} ({log.actual_hours_taken} hrs)
-              </Typography>
-            ))}
-          </Box>
-        )}
-
-        <Divider sx={{ my: 2 }} />
-
-        <TextField
-          label="Date of the lecture"
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          fullWidth
-          size="small"
-          InputLabelProps={{ shrink: true }}
-          helperText={"This lecture happens every " + slot.day_of_week + "."}
-        />
-
-        {isMine && (
-          <TextField
-            label="Reason for cancelling"
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            fullWidth
-            size="small"
-            sx={{ mt: 2 }}
-            placeholder="On leave / attending a conference"
-          />
-        )}
-
-        {isCovering && (
-          <Alert severity="success" sx={{ mt: 2 }}>
-            You are taking this class on {slot.covering_date} instead of{" "}
-            {slot.covering_for}. Press "Mark as conducted" once you have taken it.
-          </Alert>
-        )}
-
-        {!isMine && !isCovering && !iAmSubstitute && (
-          <Alert severity="info" sx={{ mt: 2 }}>
-            This is {slot.faculty_name}'s lecture. Only they can cancel it.
-          </Alert>
-        )}
-
-        {message && <Alert severity="success" sx={{ mt: 2 }}>{message}</Alert>}
-        {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
-      </DialogContent>
-
-      <DialogActions>
-        <Button onClick={onClose}>Close</Button>
-
-        {(isMine && !someoneElseTakesIt) || iAmSubstitute ? (
-          <Button onClick={handleConducted} disabled={busy}>
-            Mark as conducted
-          </Button>
-        ) : null}
-
-        {isMine && (
-          <Button onClick={handleCancel} variant="contained" color="error" disabled={busy}>
-            Cancel this lecture
-          </Button>
-        )}
-      </DialogActions>
-    </Dialog>
+      </AnimatePresence>
+    </Modal>
   );
 }
 

@@ -1,19 +1,9 @@
-// Small helper so every page does not have to repeat the fetch() code.
+// Small helper so every page does not repeat the fetch() code.
 import { API_BASE_URL } from "./config.js";
 
-export function getToken() {
-  return localStorage.getItem("authToken");
-}
-
-export function getMyName() {
-  return localStorage.getItem("myName") || "";
-}
-
-// The faculty_id of the teacher who is logged in. We need it to know which
-// boxes on the timetable are "my" lectures (only those can be cancelled).
-export function getMyFacultyId() {
-  return Number(localStorage.getItem("myFacultyId"));
-}
+export function getToken() { return localStorage.getItem("authToken"); }
+export function getMyName() { return localStorage.getItem("myName") || ""; }
+export function getMyFacultyId() { return Number(localStorage.getItem("myFacultyId")); }
 
 export function logout() {
   localStorage.removeItem("authToken");
@@ -21,36 +11,40 @@ export function logout() {
   localStorage.removeItem("myFacultyId");
 }
 
-// GET something from the backend
-export async function apiGet(path) {
+async function request(path, options = {}) {
   const response = await fetch(API_BASE_URL + path, {
-    headers: { Authorization: "Bearer " + getToken() },
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: "Bearer " + getToken(),
+      ...(options.headers || {}),
+    },
   });
+
   if (response.status === 401) {
     logout();
     window.location.href = "/login";
     return null;
   }
-  const data = await response.json();
+
+  // 204 and friends have no body to read
+  const text = await response.text();
+  const data = text ? JSON.parse(text) : null;
+
   if (!response.ok) {
-    throw new Error(data.detail || "Could not load data");
+    throw new Error((data && data.detail) || "Something went wrong");
   }
   return data;
 }
 
-// POST something to the backend
-export async function apiPost(path, body) {
-  const response = await fetch(API_BASE_URL + path, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: "Bearer " + getToken(),
-    },
-    body: JSON.stringify(body || {}),
-  });
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data.detail || "Something went wrong");
-  }
-  return data;
+export function apiGet(path) {
+  return request(path);
+}
+
+export function apiPost(path, body) {
+  return request(path, { method: "POST", body: JSON.stringify(body || {}) });
+}
+
+export function apiDelete(path) {
+  return request(path, { method: "DELETE" });
 }

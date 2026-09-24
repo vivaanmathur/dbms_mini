@@ -1,31 +1,48 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { AnimatePresence } from "framer-motion";
 import Login from "./pages/Login.jsx";
 import MyTimetable from "./pages/MyTimetable.jsx";
 import ClassTimetable from "./pages/ClassTimetable.jsx";
 import Requests from "./pages/Requests.jsx";
-import LectureLog from "./pages/LectureLog.jsx";
+import Syllabus from "./pages/Syllabus.jsx";
+import SyllabusDetail from "./pages/SyllabusDetail.jsx";
+import History from "./pages/History.jsx";
+import Intelligence from "./pages/Intelligence.jsx";
+import { ToastProvider } from "./ui.jsx";
 import { getToken } from "./api.js";
 
-// If there is no login token saved, send the user to the login page.
+// No token saved means you are not logged in, so back to the login page.
 function Protected({ children }) {
-  if (!getToken()) {
-    return <Navigate to="/login" replace />;
-  }
+  if (!getToken()) return <Navigate to="/login" replace />;
   return children;
 }
 
-function App() {
+function AnimatedRoutes() {
+  const location = useLocation();
   return (
-    <BrowserRouter>
-      <Routes>
+    <AnimatePresence mode="wait">
+      <Routes location={location} key={location.pathname}>
         <Route path="/login" element={<Login />} />
         <Route path="/my-timetable" element={<Protected><MyTimetable /></Protected>} />
         <Route path="/class-timetable" element={<Protected><ClassTimetable /></Protected>} />
         <Route path="/requests" element={<Protected><Requests /></Protected>} />
-        <Route path="/lecture-log" element={<Protected><LectureLog /></Protected>} />
+        <Route path="/syllabus" element={<Protected><Syllabus /></Protected>} />
+        <Route path="/syllabus/:offeringId" element={<Protected><SyllabusDetail /></Protected>} />
+        <Route path="/history" element={<Protected><History /></Protected>} />
+        <Route path="/intelligence" element={<Protected><Intelligence /></Protected>} />
         <Route path="*" element={<Navigate to={getToken() ? "/my-timetable" : "/login"} replace />} />
       </Routes>
-    </BrowserRouter>
+    </AnimatePresence>
+  );
+}
+
+function App() {
+  return (
+    <ToastProvider>
+      <BrowserRouter>
+        <AnimatedRoutes />
+      </BrowserRouter>
+    </ToastProvider>
   );
 }
 

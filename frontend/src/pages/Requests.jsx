@@ -1,50 +1,51 @@
 import { useEffect, useState } from "react";
-import Container from "@mui/material/Container";
-import Paper from "@mui/material/Paper";
-import Typography from "@mui/material/Typography";
-import Table from "@mui/material/Table";
-import TableHead from "@mui/material/TableHead";
-import TableBody from "@mui/material/TableBody";
-import TableRow from "@mui/material/TableRow";
-import TableCell from "@mui/material/TableCell";
-import Button from "@mui/material/Button";
-import Chip from "@mui/material/Chip";
-import Alert from "@mui/material/Alert";
-import Box from "@mui/material/Box";
-import Stack from "@mui/material/Stack";
-import Navbar from "../components/Navbar.jsx";
+import { motion } from "framer-motion";
+import { Check, X, ClipboardCheck, Inbox, HandHeart, Send } from "lucide-react";
+import Shell from "../components/Shell.jsx";
+import { Glass, Empty, Spinner, useToast, initials, shortDate } from "../ui.jsx";
 import { apiGet, apiPost } from "../api.js";
 
-// Shows the class in one cell, like "DBMS (Sec G) Room VY115".
-function describe(request) {
+/* "DBMS · Sec G / G1" plus the time underneath. */
+function Lecture({ request }) {
   return (
-    <span>
-      <b>{request.course_code}</b> - Sec {request.section_name}
-      {request.lab_batch_code ? " / " + request.lab_batch_code : ""}
-      <br />
-      <small>
-        {request.day_of_week} {request.start_time}-{request.end_time}, Room {request.room_number}
-      </small>
-    </span>
+    <div>
+      <div className="bold">
+        {request.course_code}
+        <span className="faint"> · Sec {request.section_name}
+          {request.lab_batch_code ? " / " + request.lab_batch_code : ""}</span>
+      </div>
+      <div className="tiny faint">
+        {request.day_of_week} {request.start_time}–{request.end_time} · {request.room_number}
+      </div>
+    </div>
   );
 }
 
 function statusChip(request) {
-  if (request.assignment_status === "ASSIGNED") {
-    return <Chip size="small" color="success" label="Approved" />;
-  }
-  if (request.assignment_status === "CANCELLED") {
-    return <Chip size="small" color="error" label="Nobody free" />;
-  }
-  return <Chip size="small" color="warning" label="Waiting for reply" />;
+  if (request.assignment_status === "ASSIGNED") return <span className="chip chip-green">Approved</span>;
+  if (request.assignment_status === "CANCELLED") return <span className="chip chip-red">Nobody free</span>;
+  return <span className="chip chip-amber">Waiting for reply</span>;
+}
+
+function Section({ icon: Icon, title, hint, children, delay }) {
+  return (
+    <Glass className="pad" delay={delay}>
+      <div className="row" style={{ gap: 9, marginBottom: 3 }}>
+        <Icon size={17} className="muted" />
+        <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, letterSpacing: "-0.3px" }}>{title}</h2>
+      </div>
+      <p className="page-sub" style={{ marginBottom: 14 }}>{hint}</p>
+      {children}
+    </Glass>
+  );
 }
 
 function Requests() {
   const [incoming, setIncoming] = useState([]);
   const [covering, setCovering] = useState([]);
   const [sent, setSent] = useState([]);
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+  const toast = useToast();
 
   async function load() {
     try {
@@ -52,182 +53,135 @@ function Requests() {
       setCovering((await apiGet("/requests/covering")) || []);
       setSent((await apiGet("/requests/sent")) || []);
     } catch (err) {
-      setError(err.message);
+      toast(err.message, "err");
+    } finally {
+      setLoading(false);
     }
   }
 
-  useEffect(() => {
-    load();
-  }, []);
+  useEffect(() => { load(); }, []);
 
-  async function answer(request, whatToDo) {
-    setMessage("");
-    setError("");
+  async function answer(request, what) {
     try {
-      const result = await apiPost(
-        "/requests/" + request.substitution_assignment_id + "/" + whatToDo
-      );
-      setMessage(result.message);
+      const result = await apiPost("/requests/" + request.substitution_assignment_id + "/" + what);
+      toast(result.message);
       load();
     } catch (err) {
-      setError(err.message);
+      toast(err.message, "err");
     }
   }
 
-  // The substitute presses this after actually taking the class, so it goes
-  // into the lecture log.
   async function markConducted(request) {
-    setMessage("");
-    setError("");
     try {
       const result = await apiPost("/mark-conducted", {
         timetable_slot_id: request.timetable_slot_id,
         lecture_date: request.lecture_date,
         remarks: "Substitute lecture",
       });
-      setMessage(result.message);
+      toast(result.message);
       load();
     } catch (err) {
-      setError(err.message);
+      toast(err.message, "err");
     }
   }
 
+  if (loading) {
+    return <Shell title="Requests"><Glass className="pad"><Spinner /></Glass></Shell>;
+  }
+
   return (
-    <Box>
-      <Navbar />
-      <Container maxWidth="lg" sx={{ py: 3 }}>
-        {message && <Alert severity="success" sx={{ mb: 2 }}>{message}</Alert>}
-        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-
-        <Paper sx={{ p: 3, mb: 3 }}>
-          <Typography variant="h5">Requests for me</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Another teacher cancelled these lectures and the system picked you
-            because you are free at that time and you have taken the fewest
-            lectures. If you reject, it goes to the next free teacher.
-          </Typography>
-
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Lecture</TableCell>
-                <TableCell>Date</TableCell>
-                <TableCell>Asked by</TableCell>
-                <TableCell>Reason</TableCell>
-                <TableCell align="right">Your answer</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {incoming.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={5}>No requests for you right now.</TableCell>
-                </TableRow>
-              )}
-              {incoming.map((request) => (
-                <TableRow key={request.substitution_assignment_id}>
-                  <TableCell>{describe(request)}</TableCell>
-                  <TableCell>{request.lecture_date}</TableCell>
-                  <TableCell>{request.cancelled_by}</TableCell>
-                  <TableCell>{request.reason}</TableCell>
-                  <TableCell align="right">
-                    <Stack direction="row" spacing={1} justifyContent="flex-end">
-                      <Button
-                        size="small"
-                        variant="contained"
-                        onClick={() => answer(request, "approve")}
-                      >
-                        Approve
-                      </Button>
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        color="error"
-                        onClick={() => answer(request, "reject")}
-                      >
-                        Reject
-                      </Button>
-                    </Stack>
-                  </TableCell>
-                </TableRow>
+    <Shell
+      title="Requests"
+      subtitle="Lectures other teachers want you to take, the ones you agreed to, and the ones you handed over."
+      actions={incoming.length > 0 && (
+        <span className="chip chip-amber">{incoming.length} waiting for you</span>
+      )}
+    >
+      <div className="stack" style={{ gap: 16 }}>
+        <Section icon={Inbox} title="Waiting for your answer" delay={0}
+                 hint="You were picked because you are free at that time. Reject and it moves to the next free teacher.">
+          {incoming.length === 0 ? <Empty>Nothing waiting for you right now.</Empty> : (
+            <div className="stack" style={{ gap: 9 }}>
+              {incoming.map((request, index) => (
+                <motion.div key={request.substitution_assignment_id}
+                            className="glass-flat pad-sm between"
+                            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: index * 0.05 }}>
+                  <div className="row" style={{ gap: 11, minWidth: 0 }}>
+                    <span className="avatar">{initials(request.cancelled_by)}</span>
+                    <div style={{ minWidth: 0 }}>
+                      <Lecture request={request} />
+                      <div className="tiny muted" style={{ marginTop: 3 }}>
+                        <b>{shortDate(request.lecture_date)}</b> · {request.cancelled_by} — “{request.reason}”
+                      </div>
+                    </div>
+                  </div>
+                  <div className="row" style={{ gap: 7 }}>
+                    <button className="btn btn-primary btn-sm" onClick={() => answer(request, "approve")}>
+                      <Check size={13} /> Accept
+                    </button>
+                    <button className="btn btn-danger btn-sm" onClick={() => answer(request, "reject")}>
+                      <X size={13} /> Decline
+                    </button>
+                  </div>
+                </motion.div>
               ))}
-            </TableBody>
-          </Table>
-        </Paper>
+            </div>
+          )}
+        </Section>
 
-        <Paper sx={{ p: 3, mb: 3 }}>
-          <Typography variant="h5">Classes I am covering</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            You said yes to these. After you take the class, press "Mark as
-            conducted" so it is added to your lecture log.
-          </Typography>
+        <Section icon={HandHeart} title="Classes I am covering" delay={0.06}
+                 hint="You said yes to these. Mark them conducted once you have taken them.">
+          {covering.length === 0 ? <Empty>You are not covering any class.</Empty> : (
+            <div className="table-wrap">
+              <table className="table">
+                <thead>
+                  <tr><th>Lecture</th><th>Date</th><th>Instead of</th><th></th></tr>
+                </thead>
+                <tbody>
+                  {covering.map((request) => (
+                    <tr key={request.substitution_assignment_id}>
+                      <td><Lecture request={request} /></td>
+                      <td>{shortDate(request.lecture_date)}</td>
+                      <td className="muted">{request.cancelled_by}</td>
+                      <td style={{ textAlign: "right" }}>
+                        <button className="btn btn-sm" onClick={() => markConducted(request)}>
+                          <ClipboardCheck size={13} /> Mark conducted
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Section>
 
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Lecture</TableCell>
-                <TableCell>Date</TableCell>
-                <TableCell>Normally taken by</TableCell>
-                <TableCell align="right"></TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {covering.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={4}>You are not covering any class.</TableCell>
-                </TableRow>
-              )}
-              {covering.map((request) => (
-                <TableRow key={request.substitution_assignment_id}>
-                  <TableCell>{describe(request)}</TableCell>
-                  <TableCell>{request.lecture_date}</TableCell>
-                  <TableCell>{request.cancelled_by}</TableCell>
-                  <TableCell align="right">
-                    <Button size="small" variant="outlined" onClick={() => markConducted(request)}>
-                      Mark as conducted
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Paper>
-
-        <Paper sx={{ p: 3 }}>
-          <Typography variant="h5">My cancelled lectures</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Lectures you cancelled, and who is covering them.
-          </Typography>
-
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Lecture</TableCell>
-                <TableCell>Date</TableCell>
-                <TableCell>Reason</TableCell>
-                <TableCell>Given to</TableCell>
-                <TableCell>Status</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {sent.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={5}>You have not cancelled any lecture.</TableCell>
-                </TableRow>
-              )}
-              {sent.map((request) => (
-                <TableRow key={request.substitution_assignment_id}>
-                  <TableCell>{describe(request)}</TableCell>
-                  <TableCell>{request.lecture_date}</TableCell>
-                  <TableCell>{request.reason}</TableCell>
-                  <TableCell>{request.substitute_name}</TableCell>
-                  <TableCell>{statusChip(request)}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Paper>
-      </Container>
-    </Box>
+        <Section icon={Send} title="Lectures I handed over" delay={0.12}
+                 hint="Who is covering the classes you could not take.">
+          {sent.length === 0 ? <Empty>You have not handed over any lecture.</Empty> : (
+            <div className="table-wrap">
+              <table className="table">
+                <thead>
+                  <tr><th>Lecture</th><th>Date</th><th>Reason</th><th>Given to</th><th>Status</th></tr>
+                </thead>
+                <tbody>
+                  {sent.map((request) => (
+                    <tr key={request.substitution_assignment_id}>
+                      <td><Lecture request={request} /></td>
+                      <td>{shortDate(request.lecture_date)}</td>
+                      <td className="muted">{request.reason}</td>
+                      <td>{request.substitute_name}</td>
+                      <td>{statusChip(request)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Section>
+      </div>
+    </Shell>
   );
 }
 

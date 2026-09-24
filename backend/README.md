@@ -17,12 +17,16 @@ and we call the `sp_schedule_slot` procedure that was already there.
    the date it happens, in green.
 3. **Class Timetable** - the whole week of any class. In a lab hour all three
    lab batches are shown together.
-4. A teacher can **cancel one of their own lectures** on a date. The backend
-   then finds a teacher who is free at that hour and sends them the request.
+4. A teacher can **hand over one of their own lectures** on a date. They pick
+   who takes it from a list that puts **teachers of the same subject first**,
+   or they leave it unpicked and the backend chooses the fairest free teacher.
 5. That teacher **approves** (they now take the class) or **rejects** (it is
    passed on to the next free teacher).
 6. After taking a class, a teacher **marks it as conducted**. That row goes
    into `lecture_log`.
+7. A teacher ticks off what they actually taught — subtopics for a theory
+   course, experiment numbers for a lab — and the syllabus progress for that
+   class updates.
 
 ### How the substitute is chosen
 
@@ -98,7 +102,13 @@ name followed by 123, for example:
 | POST | `/requests/{id}/reject` | pass it to the next free teacher |
 | GET | `/requests/covering` | classes I agreed to cover |
 | GET | `/requests/sent` | my cancelled lectures and who covers them |
+| GET | `/delegate/candidates` | who this lecture could be handed to, and why |
 | POST | `/mark-conducted` | write the lecture into `lecture_log` |
+| GET | `/syllabus/my-subjects` | my subjects with syllabus progress |
+| GET | `/syllabus/{offering_id}` | the full unit/topic/subtopic tree, with ticks |
+| POST | `/syllabus/mark` | tick off a subtopic or an experiment |
+| DELETE | `/syllabus/mark/{id}` | undo a tick |
+| GET | `/syllabus/{offering_id}/history` | lecture history for that subject |
 | GET | `/lecture-log` | the lectures I conducted |
 | GET | `/teacher-load` | how many lectures each teacher has taken |
 
@@ -108,7 +118,12 @@ name followed by 123, for example:
 `program_curriculum`, `section_course_offering`, `faculty_course_assignment`,
 `classroom`, `timetable_slot` for the timetable, and
 `cancellation_request`, `substitution_assignment`, `lecture_log` for the
-cancel / approve / conducted part.
+cancel / approve / conducted part, and `syllabus_unit`, `syllabus_topic`,
+`syllabus_subtopic`, `practical_experiment`, `syllabus_progress` (plus the
+`vw_syllabus_progress` view) for syllabus tracking.
+
+The five syllabus tables are the **only** things ever added to the database;
+see `docs/DATABASE_CHANGES.md` for every statement and how to undo them.
 
 The approve-reject flow needed no new table because the statuses were already
 in the schema: `cancellation_request.request_status` is

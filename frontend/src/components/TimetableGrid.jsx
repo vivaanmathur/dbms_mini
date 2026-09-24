@@ -1,193 +1,127 @@
-import Box from "@mui/material/Box";
-import Paper from "@mui/material/Paper";
-import Typography from "@mui/material/Typography";
-import Chip from "@mui/material/Chip";
+import { motion } from "framer-motion";
 import { getMyFacultyId } from "../api.js";
+import { shortDate } from "../ui.jsx";
 
 const DAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const DAY_NAMES = {
-  MON: "Monday",
-  TUE: "Tuesday",
-  WED: "Wednesday",
-  THU: "Thursday",
-  FRI: "Friday",
-  SAT: "Saturday",
+  MON: "Monday", TUE: "Tuesday", WED: "Wednesday",
+  THU: "Thursday", FRI: "Friday", SAT: "Saturday",
 };
 
-const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-
-// "2026-09-25" becomes "25 Sep", which fits inside a timetable box.
-function shortDate(text) {
-  const parts = text.split("-");
-  return Number(parts[2]) + " " + MONTHS[Number(parts[1]) - 1];
-}
-
-// Pulls out every start time in the timetable ("08:30", "09:30", ...) and
-// sorts them, so each one becomes a row of the grid.
-function getRowTimes(slots) {
+// Every distinct start time becomes a row of the grid.
+function rowTimes(slots) {
   const times = [];
   slots.forEach((slot) => {
-    if (!times.includes(slot.start_time)) {
-      times.push(slot.start_time);
-    }
+    if (!times.includes(slot.start_time)) times.push(slot.start_time);
   });
-  times.sort();
-  return times;
+  return times.sort();
 }
 
-// Only keep the days that actually have a class in them.
-function getColumnDays(slots) {
+// Only show the days that actually have a class in them.
+function columnDays(slots) {
   return DAYS.filter((day) => slots.some((slot) => slot.day_of_week === day));
 }
 
-// One class inside a box. A lab hour has three of these next to each other
-// (one per lab batch: G1, G2, G3).
-function SlotBox({ slot, onClick }) {
-  const isMine = slot.faculty_id === getMyFacultyId();
-  const isLab = slot.course_type === "PRACTICAL";
-  // A class I am covering for another teacher, only on one date.
-  const isCovering = Boolean(slot.covering_for);
-
-  // A change = this lecture was cancelled on some date and someone else
-  // (may be) taking it. We show it right inside the box.
+function SlotCard({ slot, onClick, index }) {
+  const mine = slot.faculty_id === getMyFacultyId();
+  const covering = Boolean(slot.covering_for);
+  const lab = slot.course_type === "PRACTICAL";
   const changes = slot.changes || [];
 
+  let kind = "";
+  if (covering) kind = " slot-cover";
+  else if (mine) kind = " slot-mine";
+  else if (lab) kind = " slot-lab";
+
   return (
-    <Paper
-      variant="outlined"
+    <motion.button
+      type="button"
+      className={"slot" + kind}
       onClick={() => onClick(slot)}
-      sx={{
-        p: 1,
-        cursor: "pointer",
-        borderLeft: "5px solid",
-        borderLeftColor: isCovering
-          ? "success.main"
-          : isMine
-          ? "primary.main"
-          : isLab
-          ? "secondary.main"
-          : "grey.400",
-        bgcolor: isCovering ? "#e8f6ec" : isMine ? "#e8f1fb" : "white",
-        "&:hover": { bgcolor: "grey.100" },
-      }}
+      initial={{ opacity: 0, scale: 0.96 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.3, delay: Math.min(index * 0.012, 0.25) }}
+      whileHover={{ scale: 1.022 }}
+      whileTap={{ scale: 0.985 }}
+      style={{ font: "inherit", color: "inherit", textAlign: "left", width: "100%" }}
     >
-      <Typography variant="subtitle2" sx={{ fontWeight: "bold" }}>
+      <div className="slot-code">
         {slot.course_code}
-        {slot.lab_batch_code ? " - " + slot.lab_batch_code : ""}
-      </Typography>
+        {slot.lab_batch_code && <span className="faint"> · {slot.lab_batch_code}</span>}
+      </div>
+      <div className="slot-meta">{slot.start_time}–{slot.end_time}</div>
+      <div className="slot-meta">
+        {slot.room_number} · Sec {slot.section_name}
+      </div>
+      <div className="slot-meta faint">{slot.faculty_name}</div>
 
-      <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
-        {slot.start_time} - {slot.end_time}
-      </Typography>
-
-      <Typography variant="caption" sx={{ display: "block" }}>
-        Room {slot.room_number} ({slot.room_type === "LAB" ? "Lab" : "Class"})
-      </Typography>
-
-      <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
-        {slot.faculty_name} | Sec {slot.section_name}
-      </Typography>
-
-      {isCovering && (
-        <Chip
-          size="small"
-          color="success"
-          sx={{ mt: 0.5, maxWidth: "100%" }}
-          label={"You take this on " + shortDate(slot.covering_date)}
-        />
+      {covering && (
+        <div className="slot-note note-green">
+          You take this on {shortDate(slot.covering_date)}
+        </div>
       )}
 
-      {/* Any date on which this lecture was given to somebody else. We write
-          it as "25 Sep: Shoma Mitkari -> Santushti Betgeri" so it is clear
-          who is actually taking the class that day. */}
-      {!isCovering &&
-        changes.map((change) => {
-          const approved = change.assignment_status === "ASSIGNED";
-          let text;
-          if (approved) {
-            text = change.cancelled_by + " \u2192 " + change.substitute_name;
-          } else if (change.substitute_name) {
-            text = "cancelled, waiting for " + change.substitute_name;
-          } else {
-            text = "cancelled, no teacher free";
-          }
-          return (
-            <Typography
-              key={change.cancellation_request_id}
-              variant="caption"
-              sx={{
-                display: "block",
-                mt: 0.5,
-                px: 0.75,
-                py: 0.25,
-                borderRadius: 1,
-                fontWeight: "bold",
-                bgcolor: approved ? "#e8f6ec" : "#fff4e5",
-                color: approved ? "success.dark" : "warning.dark",
-              }}
-            >
-              {shortDate(change.lecture_date)}: {text}
-            </Typography>
-          );
-        })}
-    </Paper>
+      {/* Dates where this lecture was handed to somebody else. */}
+      {!covering && changes.map((change) => {
+        const approved = change.assignment_status === "ASSIGNED";
+        let text;
+        if (approved) text = change.cancelled_by + " → " + change.substitute_name;
+        else if (change.substitute_name) text = "waiting for " + change.substitute_name;
+        else text = "no teacher free";
+        return (
+          <div key={change.cancellation_request_id}
+               className={"slot-note " + (approved ? "note-green"
+                          : change.substitute_name ? "note-amber" : "note-red")}>
+            {shortDate(change.lecture_date)}: {text}
+          </div>
+        );
+      })}
+    </motion.button>
   );
 }
 
 function TimetableGrid({ slots, onSlotClick }) {
-  const rowTimes = getRowTimes(slots);
-  const columnDays = getColumnDays(slots);
+  const times = rowTimes(slots);
+  const days = columnDays(slots);
 
   if (slots.length === 0) {
-    return <Typography sx={{ p: 2 }}>No lectures to show.</Typography>;
+    return <div className="empty">No lectures to show.</div>;
   }
 
+  let counter = 0;
+
   return (
-    <Box sx={{ overflowX: "auto" }}>
-      <Box
-        sx={{
-          display: "grid",
-          // first column is the time, then one column per day
-          gridTemplateColumns: "90px repeat(" + columnDays.length + ", minmax(190px, 1fr))",
-          gap: 1,
-          minWidth: 700,
-        }}
-      >
-        {/* top-left empty corner, then the day headings */}
-        <Box />
-        {columnDays.map((day) => (
-          <Typography key={day} align="center" sx={{ fontWeight: "bold", py: 1 }}>
-            {DAY_NAMES[day]}
-          </Typography>
+    <div className="scroll-x">
+      <div className="tt" style={{ gridTemplateColumns: `72px repeat(${days.length}, minmax(178px, 1fr))` }}>
+        <div />
+        {days.map((day) => (
+          <div key={day} className="tt-day">{DAY_NAMES[day]}</div>
         ))}
 
-        {/* one row per starting time */}
-        {rowTimes.map((time) => (
-          <Box key={time} sx={{ display: "contents" }}>
-            <Typography variant="body2" sx={{ pt: 1, fontWeight: "bold", color: "text.secondary" }}>
-              {time}
-            </Typography>
-
-            {columnDays.map((day) => {
-              const inThisCell = slots.filter(
-                (slot) => slot.day_of_week === day && slot.start_time === time
+        {times.map((time) => (
+          <div key={time} style={{ display: "contents" }}>
+            <div className="tt-time">{time}</div>
+            {days.map((day) => {
+              const here = slots.filter(
+                (s) => s.day_of_week === day && s.start_time === time
               );
               return (
-                <Box key={day + time} sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
-                  {inThisCell.map((slot) => (
-                    <SlotBox
+                <div key={day + time} className="tt-cell">
+                  {here.map((slot) => (
+                    <SlotCard
                       key={slot.timetable_slot_id + "-" + (slot.covering_date || "own")}
                       slot={slot}
                       onClick={onSlotClick}
+                      index={counter++}
                     />
                   ))}
-                </Box>
+                </div>
               );
             })}
-          </Box>
+          </div>
         ))}
-      </Box>
-    </Box>
+      </div>
+    </div>
   );
 }
 
