@@ -18,8 +18,42 @@ Five rules, written at the top of `styles.css` and followed everywhere:
 4. **Type does the work.** Newsreader (serif) for titles and figures, Inter
    for everything functional, small caps for labels. Numerals are tabular so
    columns of times and hours line up.
-5. **Motion is brief and small** — 8px, ~200ms. It orients; it does not
-   perform.
+5. **Motion is brief and small.** Every surface that responds to a pointer
+   says so three times — it warms on hover, gives on press, and draws a ring
+   on keyboard focus. Nothing travels more than a few pixels and nothing
+   takes longer than 400ms.
+
+## Colour schemes
+
+Each teacher picks their own from the control in the top bar. Six palettes
+ship in `src/theme.js`: **Archive** (warm cream, the default), **Oxford**
+(cool grey and navy), **Claret** (warm blush), **Sage**, **Graphite** and
+**Nocturne** (dark).
+
+The choice is saved against that teacher's faculty id, so two teachers sharing
+a computer never inherit each other's colours, and it is applied before React
+paints so there is no flash of the wrong palette on load.
+
+Every palette obeys the same rules, so none of them turns the interface into
+a toy. Tokens are named by **role** rather than by colour — `--ink` is the
+foreground and `--paper` the background — which is why the dark palette is
+just an inversion of values and needs no separate CSS anywhere.
+
+## The motion
+
+- **Buttons** lift 1px on hover, compress on press, and the primary button has
+  a light wash that sweeps across it
+- **Nav tabs** grow a hairline out from the centre on hover; the active rule
+  slides between tabs as one shared element
+- **Timetable entries and syllabus rows** widen their ruled edge as the
+  pointer enters
+- **Finishing a topic** draws a line through it over 340ms rather than simply
+  striking it out, and the checkbox springs
+- **Figures** count up to their value instead of snapping to it
+- **Loading** uses shimmering skeletons that keep the page's shape, not a
+  spinner that replaces it
+- **Lists** arrive staggered; **modals** scale in from 98%
+- All of it is switched off under `prefers-reduced-motion`
 
 ## Running it
 

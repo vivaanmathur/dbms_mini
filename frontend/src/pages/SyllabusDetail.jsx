@@ -3,7 +3,8 @@ import { useParams, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Check, ChevronDown, ArrowLeft, FlaskConical } from "lucide-react";
 import Shell from "../components/Shell.jsx";
-import { Card, Bar, Spinner, Empty, useToast, shortDate, asYearMonthDay } from "../ui.jsx";
+import { Card, Bar, Empty, useToast, shortDate, asYearMonthDay,
+         Figure, SkeletonRows } from "../ui.jsx";
 import { apiGet, apiPost, apiDelete } from "../api.js";
 
 /* One tickable line: a subtopic of a theory course, or a lab experiment. */
@@ -16,9 +17,9 @@ function Tick({ label, number, done, onToggle }) {
           {done && (
             <motion.span initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
                          exit={{ scale: 0, opacity: 0 }}
-                         transition={{ type: "spring", stiffness: 500, damping: 22 }}
+                         transition={{ type: "spring", stiffness: 620, damping: 20 }}
                          style={{ display: "grid", placeItems: "center" }}>
-              <Check size={12} color="#fff" strokeWidth={3.2} />
+              <Check size={12} color="var(--on-ink)" strokeWidth={3.2} />
             </motion.span>
           )}
         </AnimatePresence>
@@ -123,7 +124,7 @@ function SyllabusDetail() {
     }
   }
 
-  if (!data) return <Shell title="Syllabus"><Card className="pad"><Spinner /></Card></Shell>;
+  if (!data) return <Shell title="Syllabus"><Card className="pad"><SkeletonRows rows={7} /></Card></Shell>;
 
   const { offering, units, experiments, progress } = data;
   const lab = offering.course_type === "PRACTICAL";
@@ -142,11 +143,14 @@ function SyllabusDetail() {
         <Card className="pad">
           <div className="between" style={{ marginBottom: 12 }}>
             <div>
-              <div className="figure">{Math.round(Number(progress.percent_complete))}%</div>
+              <Figure value={Math.round(Number(progress.percent_complete))} suffix="%" />
               <div className="stat-label">Syllabus covered</div>
             </div>
             <div style={{ textAlign: "right" }}>
-              <div className="figure">{progress.completed_items}<span className="faint" style={{ fontSize: 17 }}>/{progress.total_items}</span></div>
+              <div>
+                <Figure value={progress.completed_items} />
+                <span className="faint" style={{ fontSize: 17, fontFamily: "var(--serif)" }}>/{progress.total_items}</span>
+              </div>
               <div className="stat-label">{lab ? "Experiments" : "Subtopics"}</div>
             </div>
           </div>

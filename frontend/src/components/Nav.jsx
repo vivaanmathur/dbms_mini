@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { LogOut } from "lucide-react";
 import { getMyName, logout } from "../api.js";
 import { initials } from "../ui.jsx";
+import ThemePicker from "./ThemePicker.jsx";
 
 const PAGES = [
   { to: "/my-timetable", label: "Timetable" },
@@ -50,6 +51,7 @@ function Nav() {
         </div>
 
         <div className="row" style={{ gap: 10 }}>
+          <ThemePicker />
           <span className="avatar avatar-ink" title={name}>{initials(name)}</span>
           <button className="btn btn-quiet btn-sm" onClick={signOut}>
             <LogOut size={13} /> Sign out

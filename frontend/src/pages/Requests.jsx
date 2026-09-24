@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Check, X, ClipboardCheck, Inbox, HandHeart, Send } from "lucide-react";
 import Shell from "../components/Shell.jsx";
-import { Card, Empty, Spinner, useToast, initials, shortDate } from "../ui.jsx";
+import { Card, Empty, useToast, initials, shortDate, SkeletonRows } from "../ui.jsx";
 import { apiGet, apiPost } from "../api.js";
 
 /* "DBMS · Sec G / G1" plus the time underneath. */
@@ -86,7 +86,12 @@ function Requests() {
   }
 
   if (loading) {
-    return <Shell title="Requests"><Card className="pad"><Spinner /></Card></Shell>;
+    return (
+      <Shell title="Requests"
+             subtitle="Lectures other teachers want you to take, the ones you agreed to, and the ones you handed over.">
+        <Card className="pad"><SkeletonRows rows={5} /></Card>
+      </Shell>
+    );
   }
 
   return (

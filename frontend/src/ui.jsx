@@ -6,6 +6,7 @@
  * arrived; it does not put on a show.
  */
 import { createContext, useContext, useState, useCallback, useEffect } from "react";
+import { useMotionValue, useSpring, useTransform, useReducedMotion } from "framer-motion";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Check, AlertTriangle } from "lucide-react";
 
@@ -169,6 +170,55 @@ export function Dial({ percent, size = 54 }) {
     </div>
   );
 }
+
+/* A figure that counts up to its value instead of snapping to it. Used for
+   the big serif numbers, where the movement reads as the value settling. */
+export function Figure({ value, suffix = "", className = "figure" }) {
+  const reduced = useReducedMotion();
+  const raw = useMotionValue(0);
+  const smooth = useSpring(raw, { stiffness: 90, damping: 20, mass: 0.7 });
+  const shown = useTransform(smooth, (n) => Math.round(n).toLocaleString());
+  const [text, setText] = useState("0");
+
+  useEffect(() => {
+    if (reduced) { setText(String(Math.round(Number(value) || 0))); return; }
+    raw.set(Number(value) || 0);
+    return shown.on("change", setText);
+  }, [value, reduced]);
+
+  return <span className={className}>{text}{suffix}</span>;
+}
+
+/* Loading keeps the page's shape rather than replacing it with a spinner. */
+export function Skeleton({ height = 14, width = "100%", style }) {
+  return <div className="skeleton" style={{ height, width, ...style }} />;
+}
+
+export function SkeletonRows({ rows = 4 }) {
+  return (
+    <div className="stack" style={{ gap: 11, padding: "6px 0" }}>
+      {Array.from({ length: rows }).map((_, i) => (
+        <Skeleton key={i} height={15} width={[92, 74, 84, 66, 79][i % 5] + "%"} />
+      ))}
+    </div>
+  );
+}
+
+/* Wrap a list so its children arrive one after another. */
+export function Stagger({ children, gap = 0.035, className = "", style }) {
+  return (
+    <motion.div className={className} style={style}
+                initial="hidden" animate="shown"
+                variants={{ shown: { transition: { staggerChildren: gap } } }}>
+      {children}
+    </motion.div>
+  );
+}
+
+export const riseIn = {
+  hidden: { opacity: 0, y: 8 },
+  shown:  { opacity: 1, y: 0, transition: { duration: 0.32, ease: EASE } },
+};
 
 export function Empty({ children }) {
   return <div className="empty">{children}</div>;

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { FlaskConical, BookOpen, ChevronRight } from "lucide-react";
 import Shell from "../components/Shell.jsx";
-import { LinkCard, Dial, Empty, Spinner, useToast } from "../ui.jsx";
+import { LinkCard, Dial, Empty, useToast, Skeleton } from "../ui.jsx";
 import { apiGet } from "../api.js";
 
 /*
@@ -32,7 +32,17 @@ function Syllabus() {
         <span className="tag">{done} of {total} items covered</span>
       )}
     >
-      {loading ? <Spinner /> : subjects.length === 0 ? (
+      {loading ? (
+        <div className="grid-auto">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="card pad" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <Skeleton height={17} width="45%" />
+              <Skeleton height={12} width="80%" />
+              <Skeleton height={12} width="60%" />
+            </div>
+          ))}
+        </div>
+      ) : subjects.length === 0 ? (
         <Empty>You are not assigned to any subject yet.</Empty>
       ) : (
         <div className="grid-auto">
@@ -42,7 +52,7 @@ function Syllabus() {
               <Link key={subject.section_course_offering_id}
                     to={"/syllabus/" + subject.section_course_offering_id}
                     style={{ textDecoration: "none" }}>
-                <LinkCard className="pad" delay={index * 0.04}>
+                <LinkCard className="pad card-link" delay={index * 0.04}>
                   {/* nowrap keeps the ring beside the title even when the
                       course name is long, instead of pushing it onto its own line */}
                   <div className="between" style={{ alignItems: "flex-start", flexWrap: "nowrap", gap: 12 }}>
@@ -69,7 +79,7 @@ function Syllabus() {
                       {Number(subject.delivered_hours)}/{Number(subject.total_planned_hours)} hrs
                     </span>
                       <span className="row faint" style={{ gap: 2 }}>
-                        Open <ChevronRight size={13} />
+                        Open <span className="nudge"><ChevronRight size={13} /></span>
                       </span>
                     </div>
                   </div>

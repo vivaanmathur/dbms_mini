@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { History as HistoryIcon, Scale } from "lucide-react";
 import Shell from "../components/Shell.jsx";
-import { Card, Empty, Spinner, Bar, useToast, shortDate, initials } from "../ui.jsx";
+import { Card, Empty, Bar, useToast, shortDate, initials,
+         Figure, SkeletonRows, Stagger, riseIn } from "../ui.jsx";
 import { apiGet, getMyName } from "../api.js";
 
 /*
@@ -27,7 +28,14 @@ function History() {
   const busiest = load.reduce((max, row) => Math.max(max, Number(row.lectures_taken)), 0) || 1;
   const substitutions = logs.filter((log) => log.regular_teacher !== me).length;
 
-  if (loading) return <Shell title="Lecture History"><Card className="pad"><Spinner /></Card></Shell>;
+  if (loading) {
+    return (
+      <Shell title="Lecture History"
+             subtitle="Every class you have conducted, and how the teaching load is spread across the department.">
+        <Card className="pad"><SkeletonRows rows={6} /></Card>
+      </Shell>
+    );
+  }
 
   return (
     <Shell
@@ -42,7 +50,7 @@ function History() {
             { value: substitutions, label: "Taken for others" },
           ].map((stat, index) => (
             <Card key={stat.label} className="pad" delay={index * 0.05}>
-              <div className="figure">{stat.value}</div>
+              <Figure value={stat.value} />
               <div className="stat-label">{stat.label}</div>
             </Card>
           ))}

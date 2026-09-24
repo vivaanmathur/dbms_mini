@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import Shell from "../components/Shell.jsx";
 import TimetableGrid from "../components/TimetableGrid.jsx";
 import SlotDialog from "../components/SlotDialog.jsx";
-import { Card, Spinner, useToast } from "../ui.jsx";
+import { Card, SkeletonRows, useToast } from "../ui.jsx";
 import { apiGet, getMyName } from "../api.js";
 
 /* View 1: the week of the teacher who is logged in. */
@@ -38,7 +38,7 @@ function MyTimetable() {
       }
     >
       <Card className="pad">
-        {loading ? <Spinner /> : <TimetableGrid slots={slots} onSlotClick={setOpen} />}
+        {loading ? <SkeletonRows rows={6} /> : <TimetableGrid slots={slots} onSlotClick={setOpen} />}
       </Card>
 
       {open && (
