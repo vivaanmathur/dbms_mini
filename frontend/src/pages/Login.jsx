@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { GraduationCap, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { API_BASE_URL } from "../config.js";
-import { Glass } from "../ui.jsx";
 
 function Login() {
   const [email, setEmail] = useState("");
@@ -18,7 +17,7 @@ function Login() {
     setBusy(true);
     try {
       // This route wants a form, not JSON. The field is called "username"
-      // but we put the teacher's email in it.
+      // but the teacher's email goes in it.
       const form = new URLSearchParams();
       form.append("username", email);
       form.append("password", password);
@@ -43,66 +42,73 @@ function Login() {
   }
 
   return (
-    <>
-      <div className="aurora"><span /><span /><span /></div>
-      <div className="grain" />
+    <div className="login">
+      <aside className="login-aside">
+        <div className="row" style={{ gap: 9 }}>
+          <span style={{ width: 22, height: 22, borderRadius: 2, background: "#f1ece1",
+                         display: "grid", placeItems: "center" }}>
+            <span style={{ width: 8, height: 1.5, background: "var(--ink)" }} />
+          </span>
+          <span className="display" style={{ fontSize: 18 }}>Continuity</span>
+        </div>
 
-      <div className="login-wrap">
-        <Glass className="login-card">
-          <motion.div
-            initial={{ scale: 0.7, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ type: "spring", stiffness: 260, damping: 18, delay: 0.1 }}
-            style={{
-              width: 48, height: 48, borderRadius: 15, display: "grid", placeItems: "center",
-              background: "var(--accent-grad)", marginBottom: 18,
-              boxShadow: "0 12px 30px -8px var(--violet)",
-            }}
-          >
-            <GraduationCap size={25} color="#fff" />
-          </motion.div>
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4, ease: [0.22, 0.61, 0.36, 1] }}>
+          <p className="display" style={{ fontSize: 40, margin: 0, maxWidth: "15ch" }}>
+            No lecture should quietly go missing.
+          </p>
+          <p style={{ marginTop: 20, maxWidth: "46ch", color: "rgba(241,236,225,0.68)", fontSize: 14 }}>
+            Timetables, cover arrangements and syllabus progress for the
+            Department of Artificial Intelligence &amp; Data Science — so a
+            cancelled class is a decision on record, not a gap nobody noticed.
+          </p>
+        </motion.div>
 
-          <h1 style={{ margin: 0, fontSize: 25, fontWeight: 800, letterSpacing: "-0.7px" }}>
-            Welcome back
-          </h1>
-          <p className="muted" style={{ margin: "6px 0 24px", fontSize: 13.5 }}>
-            Sign in to your lecture continuity dashboard
+        <div className="tiny" style={{ color: "rgba(241,236,225,0.42)", letterSpacing: "0.02em" }}>
+          MIT World Peace University · B.Tech AI&amp;DS
+        </div>
+      </aside>
+
+      <main className="login-main">
+        <div className="login-form">
+          <div className="eyebrow">Faculty access</div>
+          <h1 className="page-title" style={{ fontSize: 30, marginTop: 10 }}>Sign in</h1>
+          <p className="page-sub" style={{ marginBottom: 26 }}>
+            Use your college email address.
           </p>
 
-          <form onSubmit={submit} className="stack">
+          <form onSubmit={submit} className="stack" style={{ gap: 15 }}>
             <div className="field">
-              <label className="label" htmlFor="email">EMAIL</label>
-              <input id="email" className="input" type="email" required
+              <label className="label" htmlFor="email">Email</label>
+              <input id="email" className="input" type="email" required autoComplete="username"
                      value={email} onChange={(e) => setEmail(e.target.value)}
-                     placeholder="name@mitwpu.edu.in" autoComplete="username" />
+                     placeholder="name@mitwpu.edu.in" />
             </div>
 
             <div className="field">
-              <label className="label" htmlFor="password">PASSWORD</label>
+              <label className="label" htmlFor="password">Password</label>
               <input id="password" className="input" type="password" required
-                     value={password} onChange={(e) => setPassword(e.target.value)}
-                     placeholder="••••••••" autoComplete="current-password" />
+                     autoComplete="current-password"
+                     value={password} onChange={(e) => setPassword(e.target.value)} />
             </div>
 
             {error && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                className="chip chip-red"
-                style={{ padding: "8px 12px", borderRadius: 11, whiteSpace: "normal" }}
-              >
+              <div className="tag tag-oxblood" style={{
+                whiteSpace: "normal", padding: "7px 10px", textTransform: "none",
+                letterSpacing: 0, fontSize: 12, fontWeight: 500,
+              }}>
                 {error}
-              </motion.div>
+              </div>
             )}
 
             <button className="btn btn-primary" type="submit" disabled={busy}
-                    style={{ marginTop: 5, padding: "11px 16px" }}>
-              {busy ? "Signing in..." : <>Sign in <ArrowRight size={15} /></>}
+                    style={{ marginTop: 4, padding: "10px 16px" }}>
+              {busy ? "Signing in" : <>Continue <ArrowRight size={14} /></>}
             </button>
           </form>
-        </Glass>
-      </div>
-    </>
+        </div>
+      </main>
+    </div>
   );
 }
 

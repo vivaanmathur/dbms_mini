@@ -205,11 +205,22 @@ def my_timetable(me=Depends(get_logged_in_teacher)):
         (me["faculty_id"],),
     )
 
-    for cover in covers:
-        borrowed = run_query_one(
-            SLOT_QUERY.format(where="ts.timetable_slot_id = %s"), (cover["timetable_slot_id"],)
+    if covers:
+        # Fetch all the covered slots in ONE query. Asking for them one at a
+        # time meant a separate round trip to the server for each cover.
+        ids = [c["timetable_slot_id"] for c in covers]
+        placeholders = ",".join(["%s"] * len(ids))
+        borrowed_rows = run_query(
+            SLOT_QUERY.format(where="ts.timetable_slot_id IN (" + placeholders + ")"),
+            tuple(ids),
         )
-        if borrowed is not None:
+        by_id = {row["timetable_slot_id"]: row for row in borrowed_rows}
+
+        for cover in covers:
+            found = by_id.get(cover["timetable_slot_id"])
+            if found is None:
+                continue
+            borrowed = dict(found)  # a copy, since one slot can be covered twice
             borrowed["covering_for"] = cover["cancelled_by"]
             borrowed["covering_date"] = cover["lecture_date"]
             slots.append(borrowed)
@@ -855,25 +866,42 @@ def syllabus_for_class(section_course_offering_id: int, me=Depends(get_logged_in
             row["done"] = done_experiments.get(row["experiment_id"])
             experiments.append(row)
     else:
-        for unit in run_query(
+        # Read the three levels in three queries and stitch them together
+        # here. Querying per unit and per topic meant about seventeen round
+        # trips to the server for one page.
+        units = run_query(
             "SELECT unit_id, unit_number, unit_title, planned_hours "
             "FROM syllabus_unit WHERE course_id = %s ORDER BY unit_number",
             (offering["course_id"],),
-        ):
-            unit["topics"] = run_query(
-                "SELECT topic_id, topic_number, topic_title FROM syllabus_topic "
-                "WHERE unit_id = %s ORDER BY topic_number",
-                (unit["unit_id"],),
-            )
-            for topic in unit["topics"]:
-                topic["subtopics"] = run_query(
-                    "SELECT subtopic_id, subtopic_number, subtopic_title FROM syllabus_subtopic "
-                    "WHERE topic_id = %s ORDER BY subtopic_number",
-                    (topic["topic_id"],),
-                )
-                for subtopic in topic["subtopics"]:
-                    subtopic["done"] = done_subtopics.get(subtopic["subtopic_id"])
-            units.append(unit)
+        )
+        topics = run_query(
+            """
+            SELECT t.topic_id, t.unit_id, t.topic_number, t.topic_title
+            FROM syllabus_topic t
+            JOIN syllabus_unit u ON u.unit_id = t.unit_id
+            WHERE u.course_id = %s
+            ORDER BY t.topic_number
+            """,
+            (offering["course_id"],),
+        )
+        subtopics = run_query(
+            """
+            SELECT st.subtopic_id, st.topic_id, st.subtopic_number, st.subtopic_title
+            FROM syllabus_subtopic st
+            JOIN syllabus_topic t ON t.topic_id = st.topic_id
+            JOIN syllabus_unit u  ON u.unit_id  = t.unit_id
+            WHERE u.course_id = %s
+            ORDER BY st.subtopic_number
+            """,
+            (offering["course_id"],),
+        )
+
+        for subtopic in subtopics:
+            subtopic["done"] = done_subtopics.get(subtopic["subtopic_id"])
+        for topic in topics:
+            topic["subtopics"] = [s for s in subtopics if s["topic_id"] == topic["topic_id"]]
+        for unit in units:
+            unit["topics"] = [t for t in topics if t["unit_id"] == unit["unit_id"]]
 
     progress = run_query_one(
         "SELECT total_items, completed_items, percent_complete FROM vw_syllabus_progress "

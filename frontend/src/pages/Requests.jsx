@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Check, X, ClipboardCheck, Inbox, HandHeart, Send } from "lucide-react";
 import Shell from "../components/Shell.jsx";
-import { Glass, Empty, Spinner, useToast, initials, shortDate } from "../ui.jsx";
+import { Card, Empty, Spinner, useToast, initials, shortDate } from "../ui.jsx";
 import { apiGet, apiPost } from "../api.js";
 
 /* "DBMS · Sec G / G1" plus the time underneath. */
@@ -22,21 +22,21 @@ function Lecture({ request }) {
 }
 
 function statusChip(request) {
-  if (request.assignment_status === "ASSIGNED") return <span className="chip chip-green">Approved</span>;
-  if (request.assignment_status === "CANCELLED") return <span className="chip chip-red">Nobody free</span>;
-  return <span className="chip chip-amber">Waiting for reply</span>;
+  if (request.assignment_status === "ASSIGNED") return <span className="tag tag-pine">Approved</span>;
+  if (request.assignment_status === "CANCELLED") return <span className="tag tag-oxblood">Nobody free</span>;
+  return <span className="tag tag-ochre">Waiting for reply</span>;
 }
 
 function Section({ icon: Icon, title, hint, children, delay }) {
   return (
-    <Glass className="pad" delay={delay}>
+    <Card className="pad" delay={delay}>
       <div className="row" style={{ gap: 9, marginBottom: 3 }}>
         <Icon size={17} className="muted" />
         <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, letterSpacing: "-0.3px" }}>{title}</h2>
       </div>
       <p className="page-sub" style={{ marginBottom: 14 }}>{hint}</p>
       {children}
-    </Glass>
+    </Card>
   );
 }
 
@@ -86,7 +86,7 @@ function Requests() {
   }
 
   if (loading) {
-    return <Shell title="Requests"><Glass className="pad"><Spinner /></Glass></Shell>;
+    return <Shell title="Requests"><Card className="pad"><Spinner /></Card></Shell>;
   }
 
   return (
@@ -94,7 +94,7 @@ function Requests() {
       title="Requests"
       subtitle="Lectures other teachers want you to take, the ones you agreed to, and the ones you handed over."
       actions={incoming.length > 0 && (
-        <span className="chip chip-amber">{incoming.length} waiting for you</span>
+        <span className="tag tag-ochre">{incoming.length} awaiting your answer</span>
       )}
     >
       <div className="stack" style={{ gap: 16 }}>
@@ -104,7 +104,7 @@ function Requests() {
             <div className="stack" style={{ gap: 9 }}>
               {incoming.map((request, index) => (
                 <motion.div key={request.substitution_assignment_id}
-                            className="glass-flat pad-sm between"
+                            className="card-sunk pad-sm between"
                             initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: index * 0.05 }}>
                   <div className="row" style={{ gap: 11, minWidth: 0 }}>

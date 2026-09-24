@@ -1,18 +1,16 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import {
-  CalendarDays, Users, Inbox, BookOpen, History, Sparkles, LogOut, GraduationCap,
-} from "lucide-react";
+import { LogOut } from "lucide-react";
 import { getMyName, logout } from "../api.js";
 import { initials } from "../ui.jsx";
 
 const PAGES = [
-  { to: "/my-timetable", label: "My Timetable", Icon: CalendarDays },
-  { to: "/class-timetable", label: "Classes", Icon: Users },
-  { to: "/requests", label: "Requests", Icon: Inbox },
-  { to: "/syllabus", label: "Syllabus", Icon: BookOpen },
-  { to: "/history", label: "History", Icon: History },
-  { to: "/intelligence", label: "Intelligence", Icon: Sparkles },
+  { to: "/my-timetable", label: "Timetable" },
+  { to: "/class-timetable", label: "Classes" },
+  { to: "/requests", label: "Requests" },
+  { to: "/syllabus", label: "Syllabus" },
+  { to: "/history", label: "History" },
+  { to: "/intelligence", label: "Intelligence" },
 ];
 
 function Nav() {
@@ -28,37 +26,33 @@ function Nav() {
   return (
     <nav className="nav">
       <div className="nav-inner">
-        <div className="brand">
+        <Link to="/my-timetable" className="brand" style={{ textDecoration: "none", color: "inherit" }}>
           <span className="brand-mark">
-            <GraduationCap size={17} color="#fff" />
+            <span style={{ width: 8, height: 1.5, background: "var(--card)" }} />
           </span>
-          <span>Continuity</span>
-        </div>
+          Continuity
+        </Link>
 
         <div className="nav-links">
-          {PAGES.map(({ to, label, Icon }) => {
-            const active = location.pathname === to;
+          {PAGES.map(({ to, label }) => {
+            const active = location.pathname.startsWith(to);
             return (
               <Link key={to} to={to} className={"nav-link" + (active ? " active" : "")}>
-                {/* one shared layoutId makes the highlight glide from tab to tab */}
-                {active && (
-                  <motion.span
-                    layoutId="nav-pill"
-                    className="nav-pill"
-                    transition={{ type: "spring", stiffness: 400, damping: 32 }}
-                  />
-                )}
-                <Icon size={14.5} />
                 {label}
+                {/* one shared layoutId slides the rule from tab to tab */}
+                {active && (
+                  <motion.span layoutId="nav-rule" className="nav-rule"
+                               transition={{ duration: 0.22, ease: [0.22, 0.61, 0.36, 1] }} />
+                )}
               </Link>
             );
           })}
         </div>
 
-        <div className="row" style={{ gap: 9 }}>
-          <div className="avatar" title={name}>{initials(name)}</div>
-          <button className="btn btn-sm btn-ghost" onClick={signOut}>
-            <LogOut size={14} /> Logout
+        <div className="row" style={{ gap: 10 }}>
+          <span className="avatar avatar-ink" title={name}>{initials(name)}</span>
+          <button className="btn btn-quiet btn-sm" onClick={signOut}>
+            <LogOut size={13} /> Sign out
           </button>
         </div>
       </div>

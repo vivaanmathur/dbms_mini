@@ -1,9 +1,25 @@
 # Continuity — Frontend
 
-React (Vite) with a hand-written "liquid glass" interface: frosted panels over
-a slowly drifting gradient, with motion from **Framer Motion** and icons from
-**lucide-react**. There is no component library — every surface comes from
-`src/styles.css`.
+React (Vite). There is no component library — every surface is defined in
+`src/styles.css`. Motion comes from **Framer Motion**, icons from
+**lucide-react**.
+
+## The design
+
+Five rules, written at the top of `styles.css` and followed everywhere:
+
+1. **Paper and ink.** A warm off-white page, near-black text. Nothing glows.
+2. **Hairlines, not shadows.** Structure comes from 1px rules — the timetable
+   is ruled the way a printed schedule is. Elevation is used almost nowhere.
+3. **Colour carries meaning, never decoration.** The interface is monochrome.
+   Pine, ochre and oxblood appear only to say *covered*, *waiting* and
+   *problem*. A colour that is not telling you something does not belong on
+   screen.
+4. **Type does the work.** Newsreader (serif) for titles and figures, Inter
+   for everything functional, small caps for labels. Numerals are tabular so
+   columns of times and hours line up.
+5. **Motion is brief and small** — 8px, ~200ms. It orients; it does not
+   perform.
 
 ## Running it
 

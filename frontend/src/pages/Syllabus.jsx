@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { FlaskConical, BookOpen, ChevronRight } from "lucide-react";
 import Shell from "../components/Shell.jsx";
-import { HoverCard, Ring, Empty, Spinner, useToast } from "../ui.jsx";
+import { LinkCard, Dial, Empty, Spinner, useToast } from "../ui.jsx";
 import { apiGet } from "../api.js";
 
 /*
@@ -29,7 +29,7 @@ function Syllabus() {
       title="Syllabus"
       subtitle="How far each of your classes has got. Open one to tick off what you have taught."
       actions={total > 0 && (
-        <span className="chip chip-violet">{done} of {total} items covered</span>
+        <span className="tag">{done} of {total} items covered</span>
       )}
     >
       {loading ? <Spinner /> : subjects.length === 0 ? (
@@ -42,7 +42,7 @@ function Syllabus() {
               <Link key={subject.section_course_offering_id}
                     to={"/syllabus/" + subject.section_course_offering_id}
                     style={{ textDecoration: "none" }}>
-                <HoverCard className="pad" delay={index * 0.04}>
+                <LinkCard className="pad" delay={index * 0.04}>
                   {/* nowrap keeps the ring beside the title even when the
                       course name is long, instead of pushing it onto its own line */}
                   <div className="between" style={{ alignItems: "flex-start", flexWrap: "nowrap", gap: 12 }}>
@@ -51,33 +51,29 @@ function Syllabus() {
                         {lab ? <FlaskConical size={15} className="faint" />
                              : <BookOpen size={15} className="faint" />}
                         <span className="bold" style={{ fontSize: 15.5 }}>{subject.course_code}</span>
-                        <span className="chip">Sec {subject.section_name}</span>
+                        <span className="tag">Sec {subject.section_name}</span>
                       </div>
                       <div className="tiny muted" style={{ marginTop: 5 }}>{subject.course_name}</div>
                     </div>
 
-                    <div style={{ position: "relative", display: "grid", placeItems: "center" }}>
-                      <Ring percent={subject.percent_complete} />
-                      <span style={{ position: "absolute", fontSize: 12, fontWeight: 800 }}>
-                        {Math.round(Number(subject.percent_complete))}%
-                      </span>
-                    </div>
+                    <Dial percent={subject.percent_complete} />
                   </div>
 
-                  <div className="divide" style={{ margin: "14px 0 11px" }} />
-
-                  <div className="between tiny">
+                  <div className="card-foot">
+                    <div className="divide" style={{ margin: "14px 0 11px" }} />
+                    <div className="between tiny">
                     <span className="muted">
                       {subject.completed_items}/{subject.total_items} {lab ? "experiments" : "subtopics"}
                     </span>
                     <span className="muted">
                       {Number(subject.delivered_hours)}/{Number(subject.total_planned_hours)} hrs
                     </span>
-                    <span className="row faint" style={{ gap: 2 }}>
-                      Open <ChevronRight size={13} />
-                    </span>
+                      <span className="row faint" style={{ gap: 2 }}>
+                        Open <ChevronRight size={13} />
+                      </span>
+                    </div>
                   </div>
-                </HoverCard>
+                </LinkCard>
               </Link>
             );
           })}

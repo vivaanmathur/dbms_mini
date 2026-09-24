@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import Shell from "../components/Shell.jsx";
 import TimetableGrid from "../components/TimetableGrid.jsx";
 import SlotDialog from "../components/SlotDialog.jsx";
-import { Glass, Spinner, useToast } from "../ui.jsx";
+import { Card, Spinner, useToast } from "../ui.jsx";
 import { apiGet } from "../api.js";
 
 /*
@@ -55,9 +55,9 @@ function ClassTimetable() {
         </select>
       }
     >
-      <Glass className="pad">
+      <Card className="pad">
         {loading ? <Spinner /> : <TimetableGrid slots={slots} onSlotClick={setOpen} />}
-      </Glass>
+      </Card>
 
       {open && <SlotDialog slot={open} onClose={() => setOpen(null)} onChanged={load} />}
     </Shell>

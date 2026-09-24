@@ -130,13 +130,13 @@ function SlotDialog({ slot, onClose, onChanged }) {
                       exit={{ opacity: 0, x: -12 }} transition={{ duration: 0.18 }}>
 
             <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-              <span className="chip chip-violet">{slot.faculty_name}{mine ? " (you)" : ""}</span>
-              <span className="chip">{slot.course_type === "PRACTICAL" ? "Lab" : "Theory"}</span>
-              {covering && <span className="chip chip-green">You cover this on {shortDate(slot.covering_date)}</span>}
+              <span className="tag tag-ink">{slot.faculty_name}{mine ? " (you)" : ""}</span>
+              <span className="tag">{slot.course_type === "PRACTICAL" ? "Lab" : "Theory"}</span>
+              {covering && <span className="tag tag-pine">You cover this on {shortDate(slot.covering_date)}</span>}
             </div>
 
             {covering && (
-              <div className="glass-flat pad-sm tiny">
+              <div className="card-sunk pad-sm tiny">
                 You agreed to take this class instead of <b>{slot.covering_for}</b> on{" "}
                 <b>{shortDate(slot.covering_date)}</b>. Mark it conducted once you have taken it.
               </div>
@@ -146,13 +146,13 @@ function SlotDialog({ slot, onClose, onChanged }) {
               <div className="stack" style={{ gap: 7 }}>
                 <div className="label">HANDED OVER ON</div>
                 {changes.map((c) => (
-                  <div key={c.cancellation_request_id} className="glass-flat pad-sm tiny">
+                  <div key={c.cancellation_request_id} className="card-sunk pad-sm tiny">
                     <b>{shortDate(c.lecture_date)}</b> — {c.cancelled_by} could not take it ({c.reason}).{" "}
                     {c.substitute_name
-                      ? <span className={"chip " + (c.assignment_status === "ASSIGNED" ? "chip-green" : "chip-amber")}>
+                      ? <span className={"tag " + (c.assignment_status === "ASSIGNED" ? "tag-pine" : "tag-ochre")}>
                           {c.substitute_name}{c.assignment_status === "ASSIGNED" ? " is taking it" : " has not replied"}
                         </span>
-                      : <span className="chip chip-red">nobody free</span>}
+                      : <span className="tag tag-oxblood">nobody free</span>}
                   </div>
                 ))}
               </div>
@@ -162,7 +162,7 @@ function SlotDialog({ slot, onClose, onChanged }) {
               <div className="stack" style={{ gap: 7 }}>
                 <div className="label">ALREADY CONDUCTED</div>
                 {logs.map((log) => (
-                  <div key={log.lecture_log_id} className="glass-flat pad-sm tiny">
+                  <div key={log.lecture_log_id} className="card-sunk pad-sm tiny">
                     <b>{shortDate(log.lecture_date)}</b> — taken by {log.delivered_by} ({log.actual_hours_taken} hrs)
                   </div>
                 ))}
@@ -177,7 +177,7 @@ function SlotDialog({ slot, onClose, onChanged }) {
             </div>
 
             {!mine && !covering && (
-              <div className="glass-flat pad-sm tiny muted">
+              <div className="card-sunk pad-sm tiny muted">
                 This is {slot.faculty_name}'s lecture. Only they can hand it over.
               </div>
             )}
@@ -204,7 +204,7 @@ function SlotDialog({ slot, onClose, onChanged }) {
               <div className="between">
                 <span className="label">WHO SHOULD TAKE IT</span>
                 {chosen && (
-                  <button className="btn btn-sm btn-ghost" onClick={() => setChosen(null)}>
+                  <button className="btn btn-sm btn-quiet" onClick={() => setChosen(null)}>
                     Clear choice
                   </button>
                 )}
@@ -234,10 +234,10 @@ function SlotDialog({ slot, onClose, onChanged }) {
                           <span className="row" style={{ gap: 6, flexWrap: "wrap" }}>
                             <b style={{ fontSize: 13.3 }}>{person.name}</b>
                             {person.teaches_subject && (
-                              <span className="chip chip-violet">teaches {slot.course_code}</span>
+                              <span className="tag tag-ink">teaches {slot.course_code}</span>
                             )}
                             {person.faculty_id === suggested && !chosen && (
-                              <span className="chip chip-green"><Sparkles size={10} /> suggested</span>
+                              <span className="tag tag-pine">suggested</span>
                             )}
                           </span>
                           <span className="tiny faint" style={{ display: "block" }}>

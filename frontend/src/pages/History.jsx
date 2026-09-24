@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { History as HistoryIcon, Scale } from "lucide-react";
 import Shell from "../components/Shell.jsx";
-import { Glass, Empty, Spinner, Bar, useToast, shortDate, initials } from "../ui.jsx";
+import { Card, Empty, Spinner, Bar, useToast, shortDate, initials } from "../ui.jsx";
 import { apiGet, getMyName } from "../api.js";
 
 /*
@@ -27,7 +27,7 @@ function History() {
   const busiest = load.reduce((max, row) => Math.max(max, Number(row.lectures_taken)), 0) || 1;
   const substitutions = logs.filter((log) => log.regular_teacher !== me).length;
 
-  if (loading) return <Shell title="Lecture History"><Glass className="pad"><Spinner /></Glass></Shell>;
+  if (loading) return <Shell title="Lecture History"><Card className="pad"><Spinner /></Card></Shell>;
 
   return (
     <Shell
@@ -41,14 +41,14 @@ function History() {
             { value: hours, label: "Hours taught" },
             { value: substitutions, label: "Taken for others" },
           ].map((stat, index) => (
-            <Glass key={stat.label} className="pad" delay={index * 0.05}>
-              <div className="stat-value">{stat.value}</div>
+            <Card key={stat.label} className="pad" delay={index * 0.05}>
+              <div className="figure">{stat.value}</div>
               <div className="stat-label">{stat.label}</div>
-            </Glass>
+            </Card>
           ))}
         </div>
 
-        <Glass className="pad" delay={0.15}>
+        <Card className="pad" delay={0.15}>
           <div className="row" style={{ gap: 9, marginBottom: 14 }}>
             <HistoryIcon size={17} className="muted" />
             <h2 style={{ margin: 0, fontSize: 15.5, fontWeight: 700 }}>What you taught</h2>
@@ -78,8 +78,8 @@ function History() {
                       <td>{Number(log.actual_hours_taken)}</td>
                       <td>
                         {log.regular_teacher === me
-                          ? <span className="chip">Own class</span>
-                          : <span className="chip chip-green">Covered for {log.regular_teacher.split(" ")[0]}</span>}
+                          ? <span className="tag">Own class</span>
+                          : <span className="tag tag-pine">Covered for {log.regular_teacher.split(" ")[0]}</span>}
                       </td>
                     </tr>
                   ))}
@@ -87,9 +87,9 @@ function History() {
               </table>
             </div>
           )}
-        </Glass>
+        </Card>
 
-        <Glass className="pad" delay={0.2}>
+        <Card className="pad" delay={0.2}>
           <div className="row" style={{ gap: 9, marginBottom: 3 }}>
             <Scale size={17} className="muted" />
             <h2 style={{ margin: 0, fontSize: 15.5, fontWeight: 700 }}>Teaching load</h2>
@@ -122,7 +122,7 @@ function History() {
               </motion.div>
             ))}
           </div>
-        </Glass>
+        </Card>
       </div>
     </Shell>
   );

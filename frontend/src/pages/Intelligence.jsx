@@ -1,9 +1,9 @@
 import { motion } from "framer-motion";
 import {
-  Sparkles, Brain, TriangleAlert, Wand2, Users2, Shuffle, Lock, CircleCheck,
+  Sparkles, Brain, TriangleAlert, Wand2, Users2, Shuffle, Lock,
 } from "lucide-react";
 import Shell from "../components/Shell.jsx";
-import { Glass, HoverCard } from "../ui.jsx";
+import { Card, LinkCard } from "../ui.jsx";
 
 /*
  * Provision for the planned admin / AI features.
@@ -56,17 +56,16 @@ function Intelligence() {
     <Shell
       title="Intelligence"
       subtitle="Where this project is going next. Everything marked planned is a placeholder — no numbers on this page are real."
-      actions={<span className="chip chip-amber"><Lock size={11} /> provision only</span>}
+      actions={<span className="tag tag-ochre"><Lock size={11} /> provision only</span>}
     >
       <div className="stack" style={{ gap: 16 }}>
-        <Glass className="pad">
+        <Card className="pad">
           <div className="row" style={{ gap: 11, alignItems: "flex-start" }}>
             <span style={{
-              width: 38, height: 38, flex: "none", borderRadius: 12, display: "grid",
-              placeItems: "center", background: "var(--accent-grad)",
-              boxShadow: "0 10px 26px -10px var(--violet)",
+              width: 34, height: 34, flex: "none", borderRadius: 3, display: "grid",
+              placeItems: "center", background: "var(--ink)",
             }}>
-              <Sparkles size={19} color="#fff" />
+              <Sparkles size={16} color="var(--card)" />
             </span>
             <div>
               <h2 style={{ margin: 0, fontSize: 16.5, fontWeight: 700, letterSpacing: "-0.3px" }}>
@@ -85,21 +84,21 @@ function Intelligence() {
               </p>
             </div>
           </div>
-        </Glass>
+        </Card>
 
         <div className="grid-auto">
           {FEATURES.map((feature, index) => {
             const live = feature.status === "partly working";
             return (
-              <HoverCard key={feature.title} className="pad" delay={index * 0.05}>
+              <LinkCard key={feature.title} className="pad" delay={index * 0.05}>
                 <div className="between" style={{ alignItems: "flex-start", marginBottom: 10 }}>
-                  <span className="glass-flat" style={{
-                    width: 34, height: 34, borderRadius: 11, display: "grid", placeItems: "center",
+                  <span className="card-sunk" style={{
+                    width: 32, height: 32, display: "grid", placeItems: "center",
                   }}>
-                    <feature.Icon size={16} className="muted" />
+                    <feature.Icon size={15} className="muted" />
                   </span>
-                  <span className={"chip " + (live ? "chip-green" : "chip-amber")}>
-                    {live ? <CircleCheck size={10} /> : <Lock size={10} />} {feature.status}
+                  <span className={"tag " + (live ? "tag-pine" : "tag-ochre")}>
+                    {feature.status}
                   </span>
                 </div>
 
@@ -110,13 +109,13 @@ function Intelligence() {
 
                 <div className="divide" style={{ margin: "12px 0 10px" }} />
                 <p className="faint tiny" style={{ margin: 0 }}>{feature.note}</p>
-              </HoverCard>
+              </LinkCard>
             );
           })}
         </div>
 
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.35 }}>
-          <Glass className="pad">
+          <Card className="pad">
             <div className="bold" style={{ fontSize: 14 }}>Open questions</div>
             <p className="muted tiny" style={{ margin: "7px 0 0" }}>
               Two decisions are still unsettled, and they pull in opposite directions.
@@ -126,7 +125,7 @@ function Intelligence() {
               The second question is how much of this should be called AI at all.
               Full write-up in <code>docs/ROADMAP.md</code>.
             </p>
-          </Glass>
+          </Card>
         </motion.div>
       </div>
     </Shell>

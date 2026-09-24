@@ -3,7 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Check, ChevronDown, ArrowLeft, FlaskConical } from "lucide-react";
 import Shell from "../components/Shell.jsx";
-import { Glass, Bar, Spinner, Empty, useToast, shortDate, asYearMonthDay } from "../ui.jsx";
+import { Card, Bar, Spinner, Empty, useToast, shortDate, asYearMonthDay } from "../ui.jsx";
 import { apiGet, apiPost, apiDelete } from "../api.js";
 
 /* One tickable line: a subtopic of a theory course, or a lab experiment. */
@@ -29,7 +29,7 @@ function Tick({ label, number, done, onToggle }) {
       </span>
 
       {done && (
-        <span className="chip chip-green tiny">
+        <span className="tag tag-pine tiny">
           {shortDate(done.completed_on)} · {done.completed_by.split(" ")[0]}
         </span>
       )}
@@ -44,7 +44,7 @@ function Unit({ unit, openByDefault, onToggleItem }) {
   const done = all.filter((s) => s.done).length;
 
   return (
-    <div className="unit glass-flat">
+    <div className="unit card-sunk">
       <div className="unit-head" onClick={() => setOpen(!open)}>
         <motion.span animate={{ rotate: open ? 0 : -90 }} transition={{ duration: 0.2 }}
                      style={{ display: "grid", placeItems: "center" }}>
@@ -123,7 +123,7 @@ function SyllabusDetail() {
     }
   }
 
-  if (!data) return <Shell title="Syllabus"><Glass className="pad"><Spinner /></Glass></Shell>;
+  if (!data) return <Shell title="Syllabus"><Card className="pad"><Spinner /></Card></Shell>;
 
   const { offering, units, experiments, progress } = data;
   const lab = offering.course_type === "PRACTICAL";
@@ -139,14 +139,14 @@ function SyllabusDetail() {
       }
     >
       <div className="stack" style={{ gap: 16 }}>
-        <Glass className="pad">
+        <Card className="pad">
           <div className="between" style={{ marginBottom: 12 }}>
             <div>
-              <div className="stat-value">{Math.round(Number(progress.percent_complete))}%</div>
+              <div className="figure">{Math.round(Number(progress.percent_complete))}%</div>
               <div className="stat-label">Syllabus covered</div>
             </div>
             <div style={{ textAlign: "right" }}>
-              <div className="stat-value">{progress.completed_items}<span className="faint" style={{ fontSize: 17 }}>/{progress.total_items}</span></div>
+              <div className="figure">{progress.completed_items}<span className="faint" style={{ fontSize: 17 }}>/{progress.total_items}</span></div>
               <div className="stat-label">{lab ? "Experiments" : "Subtopics"}</div>
             </div>
           </div>
@@ -154,9 +154,9 @@ function SyllabusDetail() {
           <div className="tiny faint" style={{ marginTop: 9 }}>
             Tick an item the day you finish teaching it. Click it again to undo.
           </div>
-        </Glass>
+        </Card>
 
-        <Glass className="pad" delay={0.05}>
+        <Card className="pad" delay={0.05}>
           {lab ? (
             <>
               <div className="row" style={{ gap: 8, marginBottom: 12 }}>
@@ -181,9 +181,9 @@ function SyllabusDetail() {
               ))
             )
           )}
-        </Glass>
+        </Card>
 
-        <Glass className="pad" delay={0.1}>
+        <Card className="pad" delay={0.1}>
           <h2 style={{ margin: "0 0 3px", fontSize: 15.5, fontWeight: 700 }}>Lecture history</h2>
           <p className="page-sub" style={{ marginBottom: 14 }}>
             Every class of this subject that was actually conducted.
@@ -208,7 +208,7 @@ function SyllabusDetail() {
               </table>
             </div>
           )}
-        </Glass>
+        </Card>
       </div>
     </Shell>
   );
