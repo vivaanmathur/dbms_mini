@@ -18,7 +18,11 @@ function SlotDialog({ slot, onClose, onChanged }) {
   const changes = slot.changes || [];
   const logs = slot.logs || [];
 
-  const [date, setDate] = useState(slot.covering_date || nextDateFor(slot.day_of_week));
+  // The grid shows one real week, so default to this lecture's date in that
+  // week rather than guessing the next Wednesday.
+  const [date, setDate] = useState(
+    slot.covering_date || slot.date || nextDateFor(slot.day_of_week)
+  );
   const [reason, setReason] = useState("");
   const [mode, setMode] = useState("view");       // view | delegate
   const [candidates, setCandidates] = useState(null);

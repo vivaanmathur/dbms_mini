@@ -20,11 +20,16 @@ from app.database import run_query, run_query_one, run_update
 
 router = APIRouter(tags=["Insight"])
 
-# The academic calendar. A finished system would read these from a term table;
-# this schema has no such table, so they live here where they can be seen and
-# corrected rather than being buried in a query.
-TERM_START = datetime.date(2026, 7, 20)
-TERM_END = datetime.date(2026, 11, 20)
+# The academic calendar: one six month semester.
+#
+# A finished system would read these from a term table. This schema has no
+# such table (academic_batch records which semester a batch is in, but not
+# when it runs), so they live here where they can be seen and corrected
+# rather than being buried inside a query. Change these two dates and the
+# whole app follows - the timetable's week navigation, the week numbers and
+# the risk calculation all derive from them.
+TERM_START = datetime.date(2026, 7, 20)    # Monday
+TERM_END = datetime.date(2027, 1, 15)      # about 26 weeks later
 
 DAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT"]
 DAY_NUMBER = {"MON": 0, "TUE": 1, "WED": 2, "THU": 3, "FRI": 4, "SAT": 5}
@@ -761,4 +766,54 @@ def coordinator(me=Depends(get_logged_in_teacher)):
             "covered": sum(1 for r in open_items if r["state"] == "covered"),
             "moved": sum(1 for r in open_items if r["state"] == "moved"),
         },
+    }
+
+
+# ---------------------------------------------------------------------------
+# The semester calendar
+# ---------------------------------------------------------------------------
+def monday_of(day):
+    """The Monday of whatever week a date falls in."""
+    return day - datetime.timedelta(days=day.weekday())
+
+
+def week_number(week_start):
+    """Which teaching week of the semester this is: 1, 2, 3 ..."""
+    return ((week_start - monday_of(TERM_START)).days // 7) + 1
+
+
+def term_weeks():
+    first = monday_of(TERM_START)
+    last = monday_of(TERM_END)
+    return ((last - first).days // 7) + 1
+
+
+@router.get("/term")
+def term(week_start: str | None = None, me=Depends(get_logged_in_teacher)):
+    """
+    Everything the timetable needs to show one week of the semester: which
+    week it is, the date of each weekday in it, and whether there is a week
+    before or after it still inside the semester.
+    """
+    if week_start:
+        start = monday_of(datetime.date.fromisoformat(week_start))
+    else:
+        start = monday_of(datetime.date.today())
+
+    # keep the view inside the semester
+    first, last = monday_of(TERM_START), monday_of(TERM_END)
+    start = max(first, min(last, start))
+
+    return {
+        "term_start": TERM_START.isoformat(),
+        "term_end": TERM_END.isoformat(),
+        "total_weeks": term_weeks(),
+        "week_start": start.isoformat(),
+        "week_end": (start + datetime.timedelta(days=5)).isoformat(),
+        "week_number": week_number(start),
+        "has_previous": start > first,
+        "has_next": start < last,
+        "is_current_week": start == monday_of(datetime.date.today()),
+        "dates": {DAYS[i]: (start + datetime.timedelta(days=i)).isoformat()
+                  for i in range(6)},
     }

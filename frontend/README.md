@@ -105,6 +105,7 @@ frontend/src/
     Shell.jsx               background + top bar + page transition
     Nav.jsx                 top bar, with the highlight that glides between tabs
     TimetableGrid.jsx       the week grid, used by both timetable pages
+    WeekBar.jsx             moving through the semester one week at a time
     SlotDialog.jsx          the popup: mark conducted, or choose who takes it
     RecoveryDialog.jsx      make-up slots for a lecture nobody could cover
   pages/

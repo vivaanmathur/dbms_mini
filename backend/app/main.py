@@ -28,7 +28,7 @@ from pydantic import BaseModel
 
 from app.auth import check_password, get_logged_in_teacher, make_token
 from app.database import run_query, run_query_one, run_update
-from app.insight import router as insight_router
+from app.insight import router as insight_router, monday_of, week_number, term_weeks, TERM_START, TERM_END, DAYS as TERM_DAYS
 
 app = FastAPI(title="Faculty Lecture Scheduler")
 
@@ -166,31 +166,85 @@ def get_cancellations(slot_ids):
     )
 
 
-def add_extra_info(slots):
+def week_dates(week_start):
+    """The real date of each weekday in the week beginning on week_start."""
+    return {day: (week_start + datetime.timedelta(days=i)).isoformat()
+            for i, day in enumerate(TERM_DAYS)}
+
+
+def resolve_week(week_start):
     """
-    Puts the cancellations and the conducted-lecture entries of each slot
-    inside that slot, so one timetable box has everything it needs.
+    Works out which week the caller is asking for, clamped to the semester.
+    No argument means the week we are in now.
+    """
+    if week_start:
+        start = monday_of(datetime.date.fromisoformat(week_start))
+    else:
+        start = monday_of(datetime.date.today())
+    return max(monday_of(TERM_START), min(monday_of(TERM_END), start))
+
+
+def add_extra_info(slots, week_start):
+    """
+    Gives every slot the real date it falls on in this week, and attaches
+    only the cancellations and lecture-log entries for THAT date.
+
+    A timetable_slot is a weekly rule, not a lecture. Before this, a class
+    cancelled on one Friday showed a note on the grid for ever, which made
+    the timetable read as though it were happening every week.
     """
     slot_ids = [s["timetable_slot_id"] for s in slots]
     changes = get_cancellations(slot_ids)
     logs = get_logs(slot_ids)
+    dates = week_dates(week_start)
+
     for slot in slots:
-        slot["changes"] = [c for c in changes if c["timetable_slot_id"] == slot["timetable_slot_id"]]
-        slot["logs"] = [l for l in logs if l["timetable_slot_id"] == slot["timetable_slot_id"]]
+        on = dates[slot["day_of_week"]]
+        slot["date"] = on
+        slot["changes"] = [
+            c for c in changes
+            if c["timetable_slot_id"] == slot["timetable_slot_id"]
+            and c["lecture_date"] == on
+        ]
+        slot["logs"] = [
+            l for l in logs
+            if l["timetable_slot_id"] == slot["timetable_slot_id"]
+            and l["lecture_date"] == on
+        ]
     return slots
 
 
+def week_header(week_start):
+    """The bit of calendar the frontend puts above the grid."""
+    first, last = monday_of(TERM_START), monday_of(TERM_END)
+    return {
+        "week_start": week_start.isoformat(),
+        "week_end": (week_start + datetime.timedelta(days=5)).isoformat(),
+        "week_number": week_number(week_start),
+        "total_weeks": term_weeks(),
+        "has_previous": week_start > first,
+        "has_next": week_start < last,
+        "is_current_week": week_start == monday_of(datetime.date.today()),
+        "dates": week_dates(week_start),
+        "term_start": TERM_START.isoformat(),
+        "term_end": TERM_END.isoformat(),
+    }
+
+
 @app.get("/timetable/my")
-def my_timetable(me=Depends(get_logged_in_teacher)):
+def my_timetable(week_start: str | None = None, me=Depends(get_logged_in_teacher)):
     """
-    View 1: the logged-in teacher's own timetable.
+    View 1: the logged-in teacher's timetable for ONE week of the semester.
 
     It has two parts:
       - the lectures that are permanently theirs, and
-      - the one-off classes they agreed to cover for somebody else. Those are
-        only on one date, so they are marked with covering_for / covering_date
-        and the frontend draws them in a different colour.
+      - the one-off classes they agreed to cover for somebody else. A cover
+        belongs to a single date, so it only appears in the week containing
+        that date.
     """
+    week = resolve_week(week_start)
+    dates = week_dates(week)
+
     slots = run_query(SLOT_QUERY.format(where="f.faculty_id = %s"), (me["faculty_id"],))
     for slot in slots:
         slot["covering_for"] = None
@@ -225,12 +279,15 @@ def my_timetable(me=Depends(get_logged_in_teacher)):
             found = by_id.get(cover["timetable_slot_id"])
             if found is None:
                 continue
+            # only show a cover in the week it actually falls in
+            if cover["lecture_date"] != dates.get(found["day_of_week"]):
+                continue
             borrowed = dict(found)  # a copy, since one slot can be covered twice
             borrowed["covering_for"] = cover["cancelled_by"]
             borrowed["covering_date"] = cover["lecture_date"]
             slots.append(borrowed)
 
-    return add_extra_info(slots)
+    return {"week": week_header(week), "slots": add_extra_info(slots, week)}
 
 
 @app.get("/classes")
@@ -249,10 +306,12 @@ def list_classes(me=Depends(get_logged_in_teacher)):
 
 
 @app.get("/timetable/class/{section_id}")
-def class_timetable(section_id: int, me=Depends(get_logged_in_teacher)):
-    """View 2: the whole week for one class, every teacher and every batch."""
+def class_timetable(section_id: int, week_start: str | None = None,
+                    me=Depends(get_logged_in_teacher)):
+    """View 2: one week for one class, every teacher and every batch."""
+    week = resolve_week(week_start)
     slots = run_query(SLOT_QUERY.format(where="s.section_id = %s"), (section_id,))
-    return add_extra_info(slots)
+    return {"week": week_header(week), "slots": add_extra_info(slots, week)}
 
 
 # ---------------------------------------------------------------------------
@@ -318,6 +377,17 @@ def rejected_ids(remarks):
     if not remarks or "rejected:" not in remarks:
         return []
     return [int(x) for x in remarks.split("rejected:")[1].split(",") if x.strip()]
+
+
+def check_inside_semester(day):
+    """A lecture can only be cancelled or marked on a date the semester
+    actually covers - the timetable does not exist outside it."""
+    if day < TERM_START or day > TERM_END:
+        raise HTTPException(
+            status_code=400,
+            detail=("The semester runs from " + TERM_START.isoformat() + " to "
+                    + TERM_END.isoformat() + ", so there is no class on that date."),
+        )
 
 
 def list_candidates(slot, lecture_date, my_faculty_id):
@@ -462,6 +532,7 @@ def cancel_lecture(data: CancelLecture, me=Depends(get_logged_in_teacher)):
             status_code=400,
             detail="This lecture is on " + slot["day_of_week"] + ", please pick such a date",
         )
+    check_inside_semester(chosen)
 
     already = run_query_one(
         "SELECT cancellation_request_id FROM cancellation_request "
@@ -712,6 +783,7 @@ def mark_conducted(data: ConductedLecture, me=Depends(get_logged_in_teacher)):
             status_code=400,
             detail="This lecture is on " + slot["day_of_week"] + ", please pick such a date",
         )
+    check_inside_semester(chosen)
 
     already = run_query_one(
         "SELECT lecture_log_id FROM lecture_log WHERE timetable_slot_id = %s AND lecture_date = %s",

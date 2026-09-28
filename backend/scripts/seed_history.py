@@ -29,7 +29,9 @@ TODAY = datetime.date(2026, 9, 28)
 
 # How far through its syllabus each class is, as a percentage. Cycled over the
 # subjects so the dashboard shows every band rather than one flat colour.
-PACES = [74, 62, 58, 66, 49, 55, 40, 61, 33, 52, 24, 44, 68, 57, 13, 47]
+# Centred on how much of a six month semester has gone by TODAY, so the
+# dashboard shows every band rather than one flat colour.
+PACES = [52, 44, 40, 47, 33, 38, 26, 43, 20, 35, 9, 29, 48, 39, 6, 31]
 
 
 def occurrences(day_of_week, upto, weeks):
@@ -158,8 +160,21 @@ def seed_lecture_log(weeks=5):
     print(f"  {len(rows)} lectures logged across the last {weeks} weeks")
 
 
+def clear_previous():
+    """
+    Remove what an earlier run of THIS script wrote, so re-running it does
+    not pile history on top of history. Rows a teacher ticked by hand are
+    left alone - only our own 'Simulated history' rows go.
+    """
+    for table in ["syllabus_progress", "lecture_log"]:
+        run_update(f"DELETE FROM {table} WHERE remarks = 'Simulated history'")
+    print("  cleared anything a previous run of this script wrote")
+
+
 if __name__ == "__main__":
-    print("--- syllabus progress (simulated) ---")
+    print("--- clearing earlier simulated rows ---")
+    clear_previous()
+    print("\n--- syllabus progress (simulated) ---")
     seed_syllabus()
     print("\n--- lecture log (simulated) ---")
     seed_lecture_log()

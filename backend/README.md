@@ -84,11 +84,30 @@ Findings name both sides of an imbalance so they can be acted on.
 **Day view** answers what actually happens on one date: who really teaches
 each hour after cancellations, cover and make-ups.
 
-## A note on the term dates
+## The semester, and why the timetable has weeks
 
-`TERM_START` and `TERM_END` are constants at the top of `app/insight.py`. A
-finished system would read them from an academic calendar table; this schema
-has none, so they sit where they can be seen and corrected rather than being
+`timetable_slot` holds a **weekly pattern**, not lectures: "DBMS, Monday
+09:30, room VY115". A cancellation and a cover, on the other hand, belong to
+**one date**.
+
+Mixing the two was a real bug. Every cancellation was pinned onto the weekly
+grid, so a class cancelled once on 25 September carried that note for ever
+and the timetable read as though it were cancelled every Monday.
+
+Both timetable routes now take `?week_start=YYYY-MM-DD` and return
+`{week, slots}`. Each slot carries the real `date` it falls on in that week,
+and only the cancellations and lecture-log rows for **that date** are attached
+to it. The week is clamped to the semester, so you cannot page off either end.
+
+The semester itself is `TERM_START` and `TERM_END` at the top of
+`app/insight.py` - one six month run, currently 20 Jul 2026 to 15 Jan 2027,
+which is 26 teaching weeks. Change those two dates and everything follows:
+the week navigation, the week numbers, the bounds on cancelling a lecture and
+the risk calculation.
+
+A finished system would read them from an academic calendar table.
+`academic_batch` records which semester a batch is in but not when it runs, so
+for now they sit where they can be seen and corrected rather than being
 buried inside a query.
 
 ## Simulated data
@@ -136,9 +155,10 @@ name followed by 123, for example:
 |---|---|---|
 | POST | `/auth/login` | log in with email + password, returns a token |
 | GET | `/auth/me` | who is logged in |
-| GET | `/timetable/my` | view 1 - my own timetable, plus the classes I am covering |
+| GET | `/timetable/my` | view 1 - one week of my timetable, plus covers falling in it |
 | GET | `/classes` | the list of classes for the dropdown |
-| GET | `/timetable/class/{section_id}` | view 2 - one class's timetable, showing any date where the teacher changed |
+| GET | `/timetable/class/{section_id}` | view 2 - one week of a class's timetable |
+| GET | `/term` | the semester, and which week of it you are looking at |
 | POST | `/cancel-lecture` | cancel my lecture and propose a free teacher |
 | GET | `/requests/incoming` | requests waiting for my answer |
 | POST | `/requests/{id}/approve` | I will take the class |

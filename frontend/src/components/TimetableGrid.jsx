@@ -47,7 +47,7 @@ function Slot({ slot, onClick, index }) {
 
       {covering && (
         <div className="slot-note note-pine">
-          Covering for {slot.covering_for.split(" ")[0]} · {shortDate(slot.covering_date)}
+          You are covering for {slot.covering_for.split(" ")[0]}
         </div>
       )}
 
@@ -58,14 +58,16 @@ function Slot({ slot, onClick, index }) {
         let text = "uncovered";
         if (settled) {
           tone = "note-pine";
-          text = change.substitute_name;
+          text = change.substitute_name + " is taking it";
         } else if (change.substitute_name) {
           tone = "note-ochre";
-          text = "awaiting " + change.substitute_name.split(" ")[0];
+          text = "cancelled · awaiting " + change.substitute_name.split(" ")[0];
+        } else {
+          text = "cancelled · nobody free";
         }
         return (
           <div key={change.cancellation_request_id} className={"slot-note " + tone}>
-            {shortDate(change.lecture_date)} — {text}
+            {text}
           </div>
         );
       })}
@@ -73,7 +75,7 @@ function Slot({ slot, onClick, index }) {
   );
 }
 
-function TimetableGrid({ slots, onSlotClick }) {
+function TimetableGrid({ slots, onSlotClick, dates }) {
   const times = rowTimes(slots);
   const days = columnDays(slots);
 
@@ -86,7 +88,12 @@ function TimetableGrid({ slots, onSlotClick }) {
       <div className="tt" style={{ gridTemplateColumns: `68px repeat(${days.length}, minmax(168px, 1fr))` }}>
         <div className="tt-corner" />
         {days.map((day) => (
-          <div key={day} className="tt-head label">{DAY_NAMES[day]}</div>
+          <div key={day} className="tt-head">
+            <div className="label">{DAY_NAMES[day]}</div>
+            {dates && dates[day] && (
+              <div className="tiny faint" style={{ marginTop: 2 }}>{shortDate(dates[day])}</div>
+            )}
+          </div>
         ))}
 
         {times.map((time) => (
