@@ -11,7 +11,7 @@ const PAGES = [
   { to: "/requests", label: "Requests" },
   { to: "/syllabus", label: "Syllabus" },
   { to: "/history", label: "History" },
-  { to: "/intelligence", label: "Intelligence" },
+  { to: "/insights", label: "Insights" },
 ];
 
 function Nav() {

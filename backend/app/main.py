@@ -28,6 +28,7 @@ from pydantic import BaseModel
 
 from app.auth import check_password, get_logged_in_teacher, make_token
 from app.database import run_query, run_query_one, run_update
+from app.insight import router as insight_router
 
 app = FastAPI(title="Faculty Lecture Scheduler")
 
@@ -41,6 +42,10 @@ app.add_middleware(
 )
 
 DAY_NUMBER = {"MON": 0, "TUE": 1, "WED": 2, "THU": 3, "FRI": 4, "SAT": 5}
+
+# The department-level features (risk, recovery planning, allocation, the day
+# view) live in their own file to keep this one readable.
+app.include_router(insight_router)
 
 
 # ---------------------------------------------------------------------------

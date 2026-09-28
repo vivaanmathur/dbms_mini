@@ -77,7 +77,7 @@ Open http://localhost:5173. The backend must be running on port 8000 (see
 | Requests | Lectures waiting for your answer, the ones you agreed to cover, and the ones you handed over |
 | Syllabus | One card per subject you teach, with a progress ring. Open one to tick off subtopics (theory) or experiments (labs), and to read that subject's lecture history |
 | History | Every lecture you conducted, plus how the teaching load is spread across the department |
-| Intelligence | Provision for the planned admin/AI features. Placeholders only — see `docs/ROADMAP.md` |
+| Insights | Three tabs, all working: **Syllabus risk** (is each class going to finish in time, and why), **Resource allocation** (teaching load against contract, room use, what is out of balance) and **Day view** (what actually happens on one date). The recovery planner opens from the risk tab |
 
 ## Handing a lecture over
 
@@ -106,9 +106,10 @@ frontend/src/
     Nav.jsx                 top bar, with the highlight that glides between tabs
     TimetableGrid.jsx       the week grid, used by both timetable pages
     SlotDialog.jsx          the popup: mark conducted, or choose who takes it
+    RecoveryDialog.jsx      make-up slots for a lecture nobody could cover
   pages/
     Login.jsx  MyTimetable.jsx  ClassTimetable.jsx  Requests.jsx
-    Syllabus.jsx  SyllabusDetail.jsx  History.jsx  Intelligence.jsx
+    Syllabus.jsx  SyllabusDetail.jsx  History.jsx  Insights.jsx
 ```
 
 The grid puts one row per start time and one column per day. A cell can hold

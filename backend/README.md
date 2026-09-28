@@ -45,15 +45,58 @@ and we call the `sp_schedule_slot` procedure that was already there.
 ```
 backend/
   app/
-    database.py   opening the connection and running SQL
+    database.py   opening connections (pooled) and running SQL
     auth.py       password checking and the login token
-    main.py       the FastAPI app and every route
+    main.py       timetables, handing lectures over, syllabus
+    insight.py    risk, recovery planning, allocation, the day view
   scripts/
     add_more_data.py    fills in the timetable (writes docs/DATA_INSERTED.md)
+    setup_syllabus.py   creates the syllabus tables and content
+    seed_history.py     SIMULATED teaching history, so risk has something to show
     clear_demo_data.py  empties cancellations / substitutions / lecture logs
+  sql/03_syllabus.sql   the new tables
   requirements.txt
   .env            database details (not shared publicly)
 ```
+
+## The department features
+
+None of these use machine learning, and nothing calls out to a model. They
+are arithmetic over the timetable and a constraint search — which is the
+point, because every number can explain itself in a sentence.
+
+**Syllabus risk** compares how much of the syllabus a class has actually
+covered against how far through the term it is, and bands it. A subject with
+no hours on the timetable is reported as *not timetabled* rather than
+*critical*, because that is a scheduling gap, not a class falling behind.
+
+**Recovery planning** searches every slot in the next fortnight. Three hard
+rules decide whether a slot is even offered — the class free, the teacher
+free, a room of the right kind free. Soft rules only move the score: sooner
+is better, the usual room is better, late evenings and Saturdays are worse.
+An accepted plan is written as a `RESCHEDULED` row in `lecture_log`, a status
+the schema already had, so no new table was needed.
+
+**Allocation** reads each teacher's `max_weekly_workload_hours` (finally
+used) against their scheduled hours, and how often each room is booked.
+Findings name both sides of an imbalance so they can be acted on.
+
+**Day view** answers what actually happens on one date: who really teaches
+each hour after cancellations, cover and make-ups.
+
+## A note on the term dates
+
+`TERM_START` and `TERM_END` are constants at the top of `app/insight.py`. A
+finished system would read them from an academic calendar table; this schema
+has none, so they sit where they can be seen and corrected rather than being
+buried inside a query.
+
+## Simulated data
+
+`scripts/seed_history.py` writes a believable term of teaching history so the
+risk dashboard has a spread to show instead of every subject reading
+"critical". **It is simulated, not a record of real teaching.** Clear it with
+`python -m scripts.clear_demo_data`.
 
 ## Running it
 
@@ -109,6 +152,12 @@ name followed by 123, for example:
 | POST | `/syllabus/mark` | tick off a subtopic or an experiment |
 | DELETE | `/syllabus/mark/{id}` | undo a tick |
 | GET | `/syllabus/{offering_id}/history` | lecture history for that subject |
+| GET | `/risk` | is each class going to finish its syllabus in time |
+| GET | `/recovery/options` | make-up slots where class, teacher and room are all free |
+| POST | `/recovery/accept` | record the chosen make-up plan |
+| GET | `/allocation` | teaching load against contract, room use, what is out of balance |
+| GET | `/day` | what actually happens on one date for one class |
+| GET | `/coordinator` | every cancellation still needing attention |
 | GET | `/lecture-log` | the lectures I conducted |
 | GET | `/teacher-load` | how many lectures each teacher has taken |
 

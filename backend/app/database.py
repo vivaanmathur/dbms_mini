@@ -11,8 +11,10 @@ borrows one and gives it back.
 """
 import datetime
 import os
+import time
 
 import mysql.connector
+from fastapi import HTTPException
 from mysql.connector import pooling
 from dotenv import load_dotenv
 
@@ -21,13 +23,23 @@ load_dotenv()  # reads the .env file that sits next to this project
 connection_pool = None
 
 
+# How long a request will wait for a free connection before giving up.
+WAIT_FOR_CONNECTION_SECONDS = 20
+
+
 def get_connection():
-    """Borrows one connection from the pool, making the pool the first time."""
+    """
+    Borrows one connection from the pool, making the pool the first time.
+
+    The driver's own get_connection() gives up the instant every connection is
+    busy, which turned into a 500 as soon as a few requests arrived together.
+    A page load is several queries, so we wait our turn instead of failing.
+    """
     global connection_pool
     if connection_pool is None:
         connection_pool = pooling.MySQLConnectionPool(
             pool_name="scheduler_pool",
-            pool_size=5,
+            pool_size=10,
             host=os.getenv("DB_HOST"),
             port=int(os.getenv("DB_PORT", 3306)),
             database=os.getenv("DB_NAME"),
@@ -42,7 +54,18 @@ def get_connection():
             # ssl_disabled=True - that would send the password in plain text.
             use_pure=True,
         )
-    return connection_pool.get_connection()
+
+    give_up_at = time.time() + WAIT_FOR_CONNECTION_SECONDS
+    while True:
+        try:
+            return connection_pool.get_connection()
+        except pooling.PoolError:
+            if time.time() >= give_up_at:
+                raise HTTPException(
+                    status_code=503,
+                    detail="The database is busy right now. Please try again.",
+                )
+            time.sleep(0.05)
 
 
 def fix_times(row):
@@ -62,12 +85,21 @@ def fix_times(row):
 
 
 def _give_back(conn):
-    """Returns a connection to the pool. If the server already dropped it,
-    closing can itself fail, and we do not want that to hide the real error."""
+    """
+    Returns a connection to the pool.
+
+    If the server had already dropped this connection, closing it raises and
+    the pool quietly loses that slot. Left alone the pool shrinks every time
+    the network hiccups until nothing can get a connection at all, so we put
+    a fresh one in its place.
+    """
     try:
         conn.close()
     except mysql.connector.Error:
-        pass
+        try:
+            connection_pool.add_connection()
+        except mysql.connector.Error:
+            pass
 
 
 def _run(sql, values, wants_rows):

@@ -7,7 +7,7 @@ import Requests from "./pages/Requests.jsx";
 import Syllabus from "./pages/Syllabus.jsx";
 import SyllabusDetail from "./pages/SyllabusDetail.jsx";
 import History from "./pages/History.jsx";
-import Intelligence from "./pages/Intelligence.jsx";
+import Insights from "./pages/Insights.jsx";
 import { ToastProvider } from "./ui.jsx";
 import { getToken } from "./api.js";
 
@@ -29,7 +29,7 @@ function AnimatedRoutes() {
         <Route path="/syllabus" element={<Protected><Syllabus /></Protected>} />
         <Route path="/syllabus/:offeringId" element={<Protected><SyllabusDetail /></Protected>} />
         <Route path="/history" element={<Protected><History /></Protected>} />
-        <Route path="/intelligence" element={<Protected><Intelligence /></Protected>} />
+        <Route path="/insights" element={<Protected><Insights /></Protected>} />
         <Route path="*" element={<Navigate to={getToken() ? "/my-timetable" : "/login"} replace />} />
       </Routes>
     </AnimatePresence>
