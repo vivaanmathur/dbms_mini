@@ -600,3 +600,9 @@ body {
   .skeleton { animation: none; }
   .btn-primary::after { display: none; }
 }
+
+/* --- states added for dated lectures ----------------------------------- */
+.slot-makeup { border-left-color: var(--ink); background: var(--card-sunk);
+               box-shadow: inset 0 0 0 1px var(--rule-firm); }
+.slot-gone .slot-code, .slot-gone .slot-meta { opacity: 0.55; }
+.note-ink { color: var(--ink); }

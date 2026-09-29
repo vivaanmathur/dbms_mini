@@ -1,6 +1,7 @@
 # Roadmap - Learning Continuity System
 
-> **Status: tentative.** The direction below came from an **external faculty
+> **Status on the `restructure` branch.** Most of what follows has now been
+> built — see each section. The direction came from an **external faculty
 > reviewer**, not from the project team. Vivaan has not given his own view on
 > it yet, so nothing here is settled. Where work has started, it is
 > **frontend only** - screens and placeholders - so that the shape of the idea
@@ -41,7 +42,11 @@ Before any intelligence is added, tighten the rules.
 - Approval and assignment should be atomic so two simultaneous approvals
   cannot create conflicting bookings.
 
-*Status:* not started. **Note this contradicts a decision already taken** -
+*Status on `restructure`:* the double-booking bug is **fixed** — `sp_save_slot`
+checks clashes by `staff_id` across every subject. Handing over and recovery
+run in transactions. Maximum weekly hours are enforced as a finding, not a
+block. Leave and faculty preferences are still not modelled. Subject
+qualification is still **not** a hard filter — **that contradicts a decision already taken** -
 the team deliberately chose to show non-subject teachers as well, so that a
 lecture can be handed to anyone who is free. Needs a decision, see
 "Open questions".
@@ -106,9 +111,10 @@ class and a date and see who genuinely teaches each hour after cancellations,
 cover and make-ups. `GET /coordinator` lists everything still needing
 arranging, with the recovery planner one click away.
 
-What is **not** done is opening this to students without a login. That still
-needs a student role, which `app_user.user_role` does not have (`ADMIN`, `HOD`,
-`FACULTY` only), so it would mean a schema change or a public read-only view.
+*On `restructure`:* **students now have their own sign-in and dashboard** —
+who is really teaching them today, what changed this week, and each subject's
+progress, limited to their own lab batch. Coordinators and directors have a
+dashboard of every class they oversee.
 
 ## Suggested demo narrative
 
@@ -137,7 +143,5 @@ must be labelled as such.
    called AI.** Everything built is arithmetic or an exact search, and the
    interface says so. That is defensible under questioning in a way that a
    vague claim of intelligence is not.
-3. **The `sp_schedule_slot` bug in suggestion 1 is real** - verified, see
-   above - and is still unfixed. It is the clearest outstanding correctness
-   issue in the project.
-4. **Students still cannot see any of this** without a faculty login.
+3. ~~The `sp_schedule_slot` bug~~ — fixed on `restructure` by `sp_save_slot`.
+4. ~~Students cannot see any of this~~ — they have their own dashboard on `restructure`.

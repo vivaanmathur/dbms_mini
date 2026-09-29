@@ -1,459 +1,246 @@
 import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import {
-  TriangleAlert, Scale, CalendarDays, Wand2, ChevronDown, DoorOpen,
-} from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { CalendarDays, ChevronDown, DoorOpen, Scale, TriangleAlert, Wand2 } from "lucide-react";
 import Shell from "../components/Shell.jsx";
 import RecoveryDialog from "../components/RecoveryDialog.jsx";
-import {
-  Card, Bar, Empty, useToast, shortDate, initials, Figure, SkeletonRows,
-  asYearMonthDay,
-} from "../ui.jsx";
-import { apiGet } from "../api.js";
+import { LectureRow } from "../components/lectures.jsx";
+import { api } from "../api.js";
+import { asYearMonthDay, Bar, Card, Empty, Figure, initials, shortDate, SkeletonRows, useToast } from "../ui.jsx";
 
-const TABS = [
-  { id: "risk",  label: "Syllabus risk",     Icon: TriangleAlert },
-  { id: "alloc", label: "Resource allocation", Icon: Scale },
-  { id: "day",   label: "Day view",          Icon: CalendarDays },
-];
-
-const BAND_TAG = {
-  "critical":       "tag tag-oxblood",
-  "at risk":        "tag tag-oxblood",
-  "watch":          "tag tag-ochre",
-  "on track":       "tag tag-pine",
-  "not timetabled": "tag",
-  "unknown":        "tag",
+export const BAND = {
+  "critical":       { tag: "tag tag-oxblood", colour: "var(--oxblood)" },
+  "at risk":        { tag: "tag tag-oxblood", colour: "var(--oxblood-line)" },
+  "no record":      { tag: "tag tag-ochre",   colour: "var(--ochre-line)" },
+  "watch":          { tag: "tag tag-ochre",   colour: "var(--ochre)" },
+  "on track":       { tag: "tag tag-pine",    colour: "var(--pine)" },
+  "not timetabled": { tag: "tag",             colour: "var(--rule-firm)" },
+  "no syllabus":    { tag: "tag",             colour: "var(--rule)" },
 };
 
-/* ------------------------------------------------------------------ risk */
-
-function RiskRow({ subject, index, onPlan }) {
+function RiskRow({ item, index }) {
   const [open, setOpen] = useState(false);
-  const behind = subject.gap !== null && subject.gap > 0;
-
   return (
-    <motion.div className="unit"
-                initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: Math.min(index * 0.03, 0.3), duration: 0.26 }}>
+    <motion.div className="unit" initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: Math.min(index * 0.025, 0.3) }}>
       <div className="unit-head" onClick={() => setOpen(!open)}>
-        <motion.span animate={{ rotate: open ? 0 : -90 }} transition={{ duration: 0.2 }}
-                     style={{ display: "grid", placeItems: "center" }}>
-          <ChevronDown size={15} className="faint" />
-        </motion.span>
-
+        <motion.span animate={{ rotate: open ? 0 : -90 }} transition={{ duration: 0.2 }} style={{ display: "grid" }}>
+          <ChevronDown size={15} className="faint" /></motion.span>
         <span style={{ flex: 1, minWidth: 0 }}>
           <span className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-            <span className="bold">{subject.course_code}</span>
-            <span className="faint tiny">Sec {subject.section_name}</span>
-            <span className={BAND_TAG[subject.band]}>{subject.band}</span>
-            {subject.uncovered > 0 && (
-              <span className="tag tag-oxblood">{subject.uncovered} uncovered</span>
-            )}
+            <span className="bold">{item.subject_code}{item.lab_batch_code ? " · " + item.lab_batch_code : ""}</span>
+            <span className="faint tiny">{item.class_label}</span>
+            <span className={BAND[item.band].tag}>{item.band}</span>
+            {item.uncovered > 0 && <span className="tag tag-oxblood">{item.uncovered} uncovered</span>}
           </span>
           <span className="tiny faint" style={{ display: "block", marginTop: 2 }}>
-            {subject.completed_items}/{subject.total_items} items ·{" "}
-            {Number(subject.delivered_hours)}/{Number(subject.total_planned_hours)} hrs delivered
-          </span>
+            {item.teacher_name} · {item.completed_items}/{item.total_items} items · {item.delivered_hours}/{item.planned_hours} hrs</span>
         </span>
-
         <span style={{ width: 150, flex: "none" }}>
           <span className="between tiny" style={{ marginBottom: 3 }}>
-            <span className="faint">{Number(subject.percent_complete).toFixed(0)}%</span>
-            {behind && <span style={{ color: "var(--oxblood)" }}>−{subject.gap}</span>}
+            <span className="faint">{Math.round(item.percent)}%</span>
+            {item.gap > 0 && item.band !== "no record" && <span style={{ color: "var(--oxblood)" }}>−{item.gap}</span>}
           </span>
-          <Bar percent={subject.percent_complete} />
+          <Bar percent={item.percent} />
         </span>
       </div>
-
-      <AnimatePresence initial={false}>
-        {open && (
-          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22 }}
-                      style={{ overflow: "hidden" }}>
-            <div style={{ padding: "0 0 14px 32px" }}>
-              <div className="label" style={{ marginBottom: 6 }}>Why</div>
-              <ul className="stack tiny muted" style={{ gap: 5, margin: 0, paddingLeft: 16 }}>
-                {subject.reasons.map((reason, i) => <li key={i}>{reason}</li>)}
-              </ul>
-              {subject.weeks_needed !== null && (
-                <div className="tiny faint" style={{ marginTop: 8 }}>
-                  Pace so far suggests {subject.weeks_needed} more weeks are needed;
-                  {" "}{subject.weeks_left} weeks of term remain.
-                </div>
-              )}
-            </div>
-          </motion.div>
-        )}
+      <AnimatePresence initial={false}>{open && (
+        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22 }} style={{ overflow: "hidden" }}>
+          <ul className="tiny muted" style={{ margin: "0 0 14px 32px", paddingLeft: 16 }}>
+            {item.reasons.map((r, i) => <li key={i} style={{ marginBottom: 4 }}>{r}</li>)}
+          </ul>
+        </motion.div>)}
       </AnimatePresence>
     </motion.div>
   );
 }
 
-function RiskTab({ onPlan }) {
-  const [data, setData] = useState(null);
-  const [work, setWork] = useState(null);
+export function RiskPanel({ sectionId }) {
   const toast = useToast();
-
-  function load() {
-    apiGet("/risk").then(setData).catch((e) => toast(e.message, "err"));
-    apiGet("/coordinator").then(setWork).catch((e) => toast(e.message, "err"));
-  }
-  useEffect(load, []);
-
-  if (!data) return <Card className="pad"><SkeletonRows rows={7} /></Card>;
+  const [data, setData] = useState(null);
+  useEffect(() => {
+    api.get("/insight/risk" + (sectionId ? "?section_id=" + sectionId : "")).then(setData)
+      .catch((e) => toast(e.message, "err"));
+  }, [sectionId]);
+  if (!data) return <Card className="pad"><SkeletonRows rows={6} /></Card>;
 
   const counts = {};
-  data.subjects.forEach((s) => { counts[s.band] = (counts[s.band] || 0) + 1; });
-  const term = data.term;
-
+  data.items.forEach((i) => { counts[i.band] = (counts[i.band] || 0) + 1; });
   return (
     <div className="stack" style={{ gap: 16 }}>
       <Card className="pad">
-        <div className="between" style={{ alignItems: "flex-end", marginBottom: 14 }}>
-          <div>
-            <div className="label">Term progress</div>
+        <div className="between" style={{ alignItems: "flex-end", marginBottom: 12 }}>
+          <div><div className="label">Term</div>
             <div className="row" style={{ gap: 6, alignItems: "baseline", marginTop: 4 }}>
-              <Figure value={term.weeks_elapsed} />
-              <span className="faint" style={{ fontFamily: "var(--serif)", fontSize: 18 }}>
-                /{term.weeks_total} weeks
-              </span>
-            </div>
-          </div>
-          <div style={{ textAlign: "right" }}>
-            <div className="label">Every class should be about</div>
-            <div className="row" style={{ gap: 3, alignItems: "baseline", justifyContent: "flex-end", marginTop: 4 }}>
-              <Figure value={data.expected_percent} suffix="%" />
-              <span className="faint tiny">covered by now</span>
-            </div>
-          </div>
+              <Figure value={data.term.weeks_elapsed} />
+              <span className="faint display" style={{ fontSize: 17 }}>/{data.term.weeks_total} weeks</span></div></div>
+          <div style={{ textAlign: "right" }}><div className="label">Every class should be about</div>
+            <div className="row" style={{ gap: 4, alignItems: "baseline", justifyContent: "flex-end", marginTop: 4 }}>
+              <Figure value={Math.round(data.expected_percent)} suffix="%" /><span className="faint tiny">through</span></div></div>
         </div>
-        <Bar percent={term.fraction_elapsed * 100} />
-        <div className="tiny faint" style={{ marginTop: 9 }}>
-          {term.term_start} to {term.term_end} · {term.weeks_left} weeks left.
-          A subject is flagged when its syllabus coverage falls behind the share
-          of the term that has gone.
-        </div>
+        <Bar percent={data.term.fraction_elapsed * 100} />
+        <p className="tiny faint" style={{ margin: "9px 0 0" }}>
+          Each subject is compared with how much of the term has gone. Nothing here is predicted — every
+          flag says why it was raised.
+        </p>
       </Card>
 
-      <div className="grid-auto" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))" }}>
-        {["critical", "at risk", "watch", "on track", "not timetabled"].map((band, i) => (
-          <Card key={band} className="pad" delay={i * 0.04}>
-            <Figure value={counts[band] || 0} />
-            <div className="stat-label" style={{ marginTop: 2 }}>{band}</div>
-          </Card>
+      <div className="stats">
+        {Object.keys(BAND).filter((b) => counts[b]).map((b) => (
+          <div key={b} className="stat"><Figure value={counts[b]} /><div className="stat-label">{b}</div></div>
         ))}
       </div>
 
-      {work && work.needs_action.length > 0 && (
-        <Card className="pad" delay={0.1}>
-          <div className="row" style={{ gap: 9, marginBottom: 3 }}>
-            <Wand2 size={16} className="muted" />
-            <h2 className="section-title">Needs arranging</h2>
-          </div>
-          <p className="page-sub" style={{ marginBottom: 14 }}>
-            Cancelled lectures with nobody teaching them, or still waiting on a
-            reply. The planner finds a slot where the class, the teacher and a
-            room are all free.
-          </p>
-          <div className="table-wrap">
-            <table className="table">
-              <thead>
-                <tr><th>Lecture</th><th>Date</th><th>State</th><th></th></tr>
-              </thead>
-              <tbody>
-                {work.needs_action.map((row) => (
-                  <tr key={row.cancellation_request_id}>
-                    <td>
-                      <div className="bold">
-                        {row.course_code}
-                        <span className="faint"> · Sec {row.section_name}
-                          {row.lab_batch_code ? " / " + row.lab_batch_code : ""}</span>
-                      </div>
-                      <div className="tiny faint">
-                        {row.day_of_week} {row.start_time}–{row.end_time} · {row.room_number} ·
-                        normally {row.scheduled_teacher}
-                      </div>
-                    </td>
-                    <td>{shortDate(row.lecture_date)}</td>
-                    <td>
-                      {row.state === "uncovered"
-                        ? <span className="tag tag-oxblood">no teacher</span>
-                        : <span className="tag tag-ochre">awaiting {row.substitute_name?.split(" ")[0]}</span>}
-                    </td>
-                    <td style={{ textAlign: "right" }}>
-                      <button className="btn btn-sm" onClick={() => onPlan(row, load)}>
-                        <Wand2 size={13} /> Plan recovery
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
+      {data.unassigned.length > 0 && (
+        <div className="notice notice-warn">
+          <b>No teacher assigned:</b>{" "}
+          {data.unassigned.map((u) => `${u.subject_code} (${u.class_label})`).join(", ")}. These cannot
+          progress until an administrator assigns someone.
+        </div>
       )}
 
-      <Card className="pad" delay={0.14}>
-        <h2 className="section-title">Every class</h2>
-        <p className="page-sub" style={{ marginBottom: 10 }}>
-          Ordered worst first. Open a row to see exactly why it is flagged.
-        </p>
-        {data.subjects.map((subject, index) => (
-          <RiskRow key={subject.section_course_offering_id} subject={subject}
-                   index={index} onPlan={onPlan} />
-        ))}
+      <Card className="pad">
+        <h2 className="section-title">Every subject</h2>
+        <p className="page-sub" style={{ marginBottom: 8 }}>Worst first. Open a row to see exactly why.</p>
+        {data.items.length === 0 ? <Empty>Nothing to report.</Empty> :
+          data.items.map((i, n) => <RiskRow key={i.assignment_id} item={i} index={n} />)}
       </Card>
     </div>
   );
 }
 
-/* ----------------------------------------------------------- allocation */
-
-function AllocTab() {
-  const [data, setData] = useState(null);
+export function AttentionPanel({ sectionId, onChanged }) {
   const toast = useToast();
+  const [rows, setRows] = useState(null);
+  const [planning, setPlanning] = useState(null);
+  const load = () => api.get("/insight/attention" + (sectionId ? "?section_id=" + sectionId : ""))
+    .then(setRows).catch((e) => toast(e.message, "err"));
+  useEffect(() => { load(); }, [sectionId]);
 
-  useEffect(() => {
-    apiGet("/allocation").then(setData).catch((e) => toast(e.message, "err"));
-  }, []);
+  if (!rows) return <SkeletonRows rows={3} />;
+  if (rows.length === 0) return <Empty>Every cancelled lecture has someone taking it or a make-up booked.</Empty>;
+  return (
+    <>
+      <div className="table-wrap"><table className="table">
+        <thead><tr><th>Lecture</th><th>Date</th><th>Where it stands</th><th /></tr></thead>
+        <tbody>{rows.map((r) => (
+          <tr key={r.cancellation_id}>
+            <td><b>{r.subject_code}</b>{r.lab_batch_code ? " · " + r.lab_batch_code : ""}
+              <div className="tiny faint">{r.class_label} · {r.day_of_week} {r.start_time} · {r.requested_by}</div></td>
+            <td>{shortDate(r.lecture_date)}</td>
+            <td>{r.state === "pending" ? <span className="tag tag-ochre">Asked {r.waiting_on.split(" ")[0]}</span>
+                                       : <span className="tag tag-oxblood">Nobody free</span>}</td>
+            <td className="actions">{r.can_plan && (
+              <button className="btn btn-sm" onClick={() => setPlanning(r)}><Wand2 size={12} /> Make-up</button>)}</td>
+          </tr>))}
+        </tbody></table></div>
+      {planning && <RecoveryDialog item={planning} onClose={() => setPlanning(null)}
+                                   onDone={() => { load(); onChanged && onChanged(); }} />}
+    </>
+  );
+}
 
-  if (!data) return <Card className="pad"><SkeletonRows rows={7} /></Card>;
-
+function LoadPanel() {
+  const toast = useToast();
+  const [d, setD] = useState(null);
+  useEffect(() => { api.get("/insight/load").then(setD).catch((e) => toast(e.message, "err")); }, []);
+  if (!d) return <Card className="pad"><SkeletonRows rows={6} /></Card>;
   const tone = { high: "tag tag-oxblood", medium: "tag tag-ochre", low: "tag" };
-
   return (
     <div className="stack" style={{ gap: 16 }}>
+      {d.findings.length > 0 && (
+        <Card className="pad"><h2 className="section-title" style={{ marginBottom: 12 }}>What is out of balance</h2>
+          <div className="stack" style={{ gap: 8 }}>{d.findings.map((f, i) => (
+            <div key={i} className="card-sunk pad-sm">
+              <div className="row" style={{ gap: 8 }}><span className={tone[f.severity]}>{f.severity}</span>
+                <b style={{ fontSize: 13 }}>{f.title}</b></div>
+              <div className="tiny muted" style={{ marginTop: 3 }}>{f.detail}</div></div>))}
+          </div></Card>)}
       <Card className="pad">
-        <h2 className="section-title">What needs attention</h2>
-        <p className="page-sub" style={{ marginBottom: 14 }}>
-          Worked out from the timetable, each teacher's contracted weekly limit
-          and how often each room is booked.
-        </p>
-        {data.findings.length === 0 ? <Empty>Nothing is out of balance.</Empty> : (
-          <div className="stack" style={{ gap: 9 }}>
-            {data.findings.map((finding, index) => (
-              <motion.div key={index} className="card-sunk pad-sm"
-                          initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: index * 0.05, duration: 0.26 }}>
-                <div className="row" style={{ gap: 9, marginBottom: 3 }}>
-                  <span className={tone[finding.severity]}>{finding.severity}</span>
-                  <span className="bold" style={{ fontSize: 13 }}>{finding.title}</span>
-                </div>
-                <div className="tiny muted">{finding.detail}</div>
-              </motion.div>
-            ))}
-          </div>
-        )}
+        <h2 className="section-title">Hours against contract</h2>
+        <p className="page-sub" style={{ marginBottom: 14 }}>Scheduled teaching each week, against each teacher's limit.</p>
+        <div className="stack" style={{ gap: 11 }}>{d.staff.map((s) => (
+          <div key={s.staff_id} className="row" style={{ gap: 11 }}>
+            <span className="avatar">{initials(s.name)}</span>
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span className="between" style={{ marginBottom: 4 }}>
+                <span style={{ fontSize: 13 }}>{s.name}<span className="faint tiny"> · {s.weekly_sessions} sessions · {s.subjects} subjects</span></span>
+                <span className="tiny" style={{ color: s.headroom < 0 ? "var(--oxblood)" : "var(--ink-3)" }}>
+                  {s.weekly_hours}/{s.max_weekly_hours} hrs</span></span>
+              <Bar percent={s.load_percent} /></span>
+          </div>))}</div>
       </Card>
-
-      <Card className="pad" delay={0.06}>
-        <h2 className="section-title">Teaching load against contract</h2>
-        <p className="page-sub" style={{ marginBottom: 16 }}>
-          Scheduled hours a week, against each teacher's
-          <code> max_weekly_workload_hours</code>.
-        </p>
-        <div className="stack" style={{ gap: 11 }}>
-          {data.staff.map((person, index) => (
-            <motion.div key={person.faculty_id} className="row" style={{ gap: 11 }}
-                        initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: index * 0.035, duration: 0.26 }}>
-              <span className="avatar">{initials(person.name)}</span>
-              <span style={{ flex: 1, minWidth: 0 }}>
-                <span className="between" style={{ marginBottom: 4 }}>
-                  <span style={{ fontSize: 13 }}>
-                    {person.name}
-                    <span className="faint tiny"> · {person.weekly_classes} classes · {person.subjects} subjects</span>
-                  </span>
-                  <span className="tiny" style={{
-                    color: person.headroom < 0 ? "var(--oxblood)" : "var(--ink-3)",
-                  }}>
-                    {person.weekly_hours}/{person.max_weekly_workload_hours} hrs
-                    {person.headroom < 0
-                      ? ` · ${Math.abs(person.headroom)} over`
-                      : ` · ${person.headroom} spare`}
-                  </span>
-                </span>
-                <Bar percent={person.load_percent} />
-              </span>
-            </motion.div>
-          ))}
-        </div>
-      </Card>
-
-      <Card className="pad" delay={0.12}>
-        <div className="row" style={{ gap: 9, marginBottom: 3 }}>
-          <DoorOpen size={16} className="muted" />
-          <h2 className="section-title">Room use</h2>
-        </div>
-        <p className="page-sub" style={{ marginBottom: 14 }}>
-          Against {data.week_capacity} bookable slots a week
-          ({data.periods_per_day} periods × {data.teaching_days} days).
-        </p>
-        <div className="table-wrap">
-          <table className="table">
-            <thead>
-              <tr><th>Room</th><th>Type</th><th>Seats</th><th>Booked</th><th style={{ width: 180 }}>Use</th></tr>
-            </thead>
-            <tbody>
-              {data.rooms.map((room) => (
-                <tr key={room.classroom_id}>
-                  <td className="bold">{room.room_number}</td>
-                  <td className="muted tiny">{room.room_type === "LAB" ? "Lab" : "Lecture"}</td>
-                  <td className="muted">{room.seating_capacity}</td>
-                  <td className="muted">{room.bookings}</td>
-                  <td>
-                    <div className="between tiny" style={{ marginBottom: 3 }}>
-                      <span className="faint">{room.utilisation}%</span>
-                    </div>
-                    <Bar percent={room.utilisation} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      <Card className="pad">
+        <div className="row" style={{ gap: 8, marginBottom: 12 }}><DoorOpen size={15} className="muted" />
+          <h2 className="section-title">Rooms</h2></div>
+        <div className="table-wrap"><table className="table">
+          <thead><tr><th>Room</th><th>Type</th><th>Booked</th><th style={{ width: 200 }}>Use of the week</th></tr></thead>
+          <tbody>{d.rooms.map((r) => (
+            <tr key={r.room_id}><td className="bold">{r.code}</td><td className="muted tiny">{r.room_type === "LAB" ? "Lab" : "Lecture"}</td>
+              <td className="muted">{r.booked_hours} hrs</td>
+              <td><div className="tiny faint" style={{ marginBottom: 3 }}>{r.utilisation}%</div><Bar percent={r.utilisation} /></td></tr>))}
+          </tbody></table></div>
       </Card>
     </div>
   );
 }
 
-/* ------------------------------------------------------------------ day */
-
-const STATE_TAG = {
-  covered:   "tag tag-pine",
-  conducted: "tag tag-pine",
-  scheduled: "tag",
-  pending:   "tag tag-ochre",
-  uncovered: "tag tag-oxblood",
-  moved:     "tag tag-ochre",
-};
-
-function DayTab() {
-  const [classes, setClasses] = useState([]);
-  const [sectionId, setSectionId] = useState("");
-  const [date, setDate] = useState(asYearMonthDay(new Date()));
-  const [data, setData] = useState(null);
+function DayPanel() {
   const toast = useToast();
-
+  const [classes, setClasses] = useState([]);
+  const [section, setSection] = useState("");
+  const [date, setDate] = useState(asYearMonthDay(new Date()));
+  const [d, setD] = useState(null);
+  useEffect(() => { api.get("/classes").then((c) => { setClasses(c); if (c.length) setSection(c[0].section_id); }); }, []);
   useEffect(() => {
-    apiGet("/classes").then((rows) => {
-      setClasses(rows || []);
-      if (rows && rows.length) setSectionId(rows[0].section_id);
-    }).catch((e) => toast(e.message, "err"));
-  }, []);
-
-  useEffect(() => {
-    if (sectionId === "") return;
-    setData(null);
-    apiGet(`/day?section_id=${sectionId}&date=${date}`)
-      .then(setData).catch((e) => toast(e.message, "err"));
-  }, [sectionId, date]);
-
+    if (!section) return;
+    setD(null);
+    api.get(`/timetable/day?section_id=${section}&date=${date}`).then(setD).catch((e) => toast(e.message, "err"));
+  }, [section, date]);
   return (
     <Card className="pad">
       <h2 className="section-title">What actually happens on the day</h2>
-      <p className="page-sub" style={{ marginBottom: 16 }}>
-        The timetable is a weekly pattern; this is one real date, showing who is
-        genuinely teaching each hour after cancellations and cover. This is the
-        view a student or a coordinator needs.
-      </p>
-
-      <div className="row" style={{ gap: 10, marginBottom: 18, flexWrap: "wrap" }}>
-        <select className="select" style={{ width: "auto", minWidth: 230 }}
-                value={sectionId} onChange={(e) => setSectionId(e.target.value)}>
-          {classes.map((item) => (
-            <option key={item.section_id} value={item.section_id}>
-              {item.program_code} {item.admission_year} — Section {item.section_name}
-            </option>
-          ))}
-        </select>
-        <input className="input" type="date" style={{ width: "auto" }}
-               value={date} onChange={(e) => setDate(e.target.value)} />
+      <p className="page-sub" style={{ marginBottom: 14 }}>
+        One real date for one class, after cancellations, cover and make-ups — what a student or coordinator needs.</p>
+      <div className="row" style={{ gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
+        <select className="select" style={{ width: "auto", minWidth: 240 }} value={section} onChange={(e) => setSection(e.target.value)}>
+          {classes.map((c) => <option key={c.section_id} value={c.section_id}>{c.label}</option>)}</select>
+        <input className="input" type="date" style={{ width: "auto" }} value={date} onChange={(e) => setDate(e.target.value)} />
       </div>
-
-      {!data ? <SkeletonRows rows={5} />
-        : data.lectures.length === 0 ? (
-          <Empty>
-            No classes for this section on {shortDate(date)}
-            {data.day_of_week === "SUN" ? " — it is a Sunday." : "."}
-          </Empty>
-        ) : (
-          <div className="stack" style={{ gap: 8 }}>
-            {data.lectures.map((lecture, index) => (
-              <motion.div key={lecture.timetable_slot_id} className="card-sunk pad-sm"
-                          initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: index * 0.04, duration: 0.26 }}>
-                <div className="between" style={{ alignItems: "flex-start", gap: 12 }}>
-                  <div className="row" style={{ gap: 12, minWidth: 0 }}>
-                    <span className="mono faint" style={{ width: 46, flex: "none" }}>
-                      {lecture.start_time}
-                    </span>
-                    <div style={{ minWidth: 0 }}>
-                      <div className="bold" style={{ fontSize: 13.2 }}>
-                        {lecture.course_code}
-                        {lecture.lab_batch_code && <span className="faint"> {lecture.lab_batch_code}</span>}
-                        <span className="faint" style={{ fontWeight: 400 }}> · {lecture.room_number}</span>
-                      </div>
-                      <div className="tiny muted" style={{ marginTop: 2 }}>{lecture.note}</div>
-                    </div>
-                  </div>
-                  <span className={STATE_TAG[lecture.state]}>{lecture.state}</span>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        )}
+      {!d ? <SkeletonRows rows={4} /> : d.lectures.length === 0 ? <Empty>No classes on {shortDate(date)}.</Empty> :
+        d.lectures.map((l, i) => <LectureRow key={(l.kind || "") + (l.slot_id || l.makeup_id)} lecture={l} index={i} showClass={false} />)}
     </Card>
   );
 }
 
-/* ------------------------------------------------------------------ page */
+const TABS = [
+  { id: "risk", label: "Syllabus risk", Icon: TriangleAlert },
+  { id: "arrange", label: "Needs arranging", Icon: Wand2 },
+  { id: "load", label: "Load and rooms", Icon: Scale },
+  { id: "day", label: "Day view", Icon: CalendarDays },
+];
 
-function Insights() {
+export default function Insights() {
   const [tab, setTab] = useState("risk");
-  const [planning, setPlanning] = useState(null);
-  const [afterPlan, setAfterPlan] = useState(() => () => {});
-
-  function openPlanner(row, reload) {
-    setAfterPlan(() => reload);
-    setPlanning(row);
-  }
-
   return (
-    <Shell
-      title="Insights"
-      subtitle="Whether every class will finish its syllabus, how the department's hours and rooms are spread, and what really happens on a given day."
-    >
-      <div className="row" style={{ gap: 2, marginBottom: 20, flexWrap: "wrap" }}>
+    <Shell title="Insights" subtitle="For the classes you oversee: will each finish its syllabus, what needs arranging, and how people and rooms are spread.">
+      <div className="tabs">
         {TABS.map(({ id, label, Icon }) => (
-          <button key={id} className={"nav-link" + (tab === id ? " active" : "")}
-                  style={{ padding: "8px 12px", border: "none", background: "none", cursor: "pointer" }}
-                  onClick={() => setTab(id)}>
+          <button key={id} className={"tab" + (tab === id ? " on" : "")} onClick={() => setTab(id)}>
             <Icon size={14} /> {label}
-            {tab === id && (
-              <motion.span layoutId="insight-rule" className="nav-rule"
-                           transition={{ duration: 0.22, ease: [0.22, 0.61, 0.36, 1] }} />
-            )}
+            {tab === id && <motion.span layoutId="insight-tab" className="nav-rule" transition={{ duration: 0.22 }} />}
           </button>
         ))}
       </div>
-
       <AnimatePresence mode="wait">
-        <motion.div key={tab}
-                    initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+        <motion.div key={tab} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.2 }}>
-          {tab === "risk"  && <RiskTab onPlan={openPlanner} />}
-          {tab === "alloc" && <AllocTab />}
-          {tab === "day"   && <DayTab />}
+          {tab === "risk" && <RiskPanel />}
+          {tab === "arrange" && <Card className="pad"><AttentionPanel /></Card>}
+          {tab === "load" && <LoadPanel />}
+          {tab === "day" && <DayPanel />}
         </motion.div>
       </AnimatePresence>
-
-      {planning && (
-        <RecoveryDialog item={planning} onClose={() => setPlanning(null)} onDone={afterPlan} />
-      )}
     </Shell>
   );
 }
-
-export default Insights;

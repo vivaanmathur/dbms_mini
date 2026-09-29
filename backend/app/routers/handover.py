@@ -16,6 +16,11 @@ from pydantic import BaseModel
 
 from app import audit
 from app.calendar import check_lecture_date, current_term, minutes, parse_date
+
+
+def _now_minutes():
+    now = datetime.datetime.now()
+    return now.hour * 60 + now.minute
 from app.db import fetch_all, fetch_one, transaction
 from app.security import signed_in, teaching_only
 
@@ -165,8 +170,11 @@ def hand_over(data: Handover, me=Depends(teaching_only)):
         raise HTTPException(400, "Say briefly why you cannot take it.")
     on = parse_date(data.lecture_date)
     check_lecture_date(slot["day_of_week"], on, current_term())
-    if on < datetime.date.today():
-        raise HTTPException(400, "That lecture is already in the past.")
+    # the date alone is not enough: this afternoon's lecture has already
+    # started by the evening
+    if on < datetime.date.today() or (on == datetime.date.today()
+                                      and minutes(slot["start_time"]) <= _now_minutes()):
+        raise HTTPException(400, "That lecture has already started, so it cannot be handed over.")
 
     if fetch_one("SELECT 1 AS x FROM lecture_log WHERE slot_id = %s AND lecture_date = %s",
                  (data.slot_id, data.lecture_date)):
@@ -376,8 +384,9 @@ def conducted(data: Conducted, me=Depends(teaching_only)):
     slot = _slot(data.slot_id)
     on = parse_date(data.lecture_date)
     check_lecture_date(slot["day_of_week"], on, current_term())
-    if on > datetime.date.today():
-        raise HTTPException(400, "A lecture cannot be marked as conducted before it happens.")
+    if on > datetime.date.today() or (on == datetime.date.today()
+                                      and minutes(slot["end_time"]) > _now_minutes()):
+        raise HTTPException(400, "A lecture can only be recorded once it has finished.")
 
     teacher = _who_teaches(slot, data.lecture_date)
     if teacher is None:

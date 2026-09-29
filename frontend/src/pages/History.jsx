@@ -1,139 +1,80 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { History as HistoryIcon, Scale } from "lucide-react";
 import Shell from "../components/Shell.jsx";
-import { Card, Empty, Bar, useToast, shortDate, initials,
-         Figure, SkeletonRows, Stagger, riseIn } from "../ui.jsx";
-import { apiGet, getMyName } from "../api.js";
+import { api } from "../api.js";
+import { useAuth } from "../auth.jsx";
+import { Bar, Card, Empty, Figure, initials, shortDate, SkeletonRows, useToast } from "../ui.jsx";
 
-/*
- * Everything this teacher has actually taught, plus the workload table that
- * the substitute picker reads when nobody is chosen by hand.
- */
-function History() {
-  const [logs, setLogs] = useState([]);
-  const [load, setLoad] = useState([]);
-  const [loading, setLoading] = useState(true);
+/* Everything this teacher taught this term, and how the load is spread. */
+export default function History() {
+  const { me } = useAuth();
   const toast = useToast();
-  const me = getMyName();
+  const [logs, setLogs] = useState(null);
+  const [load, setLoad] = useState(null);
 
   useEffect(() => {
-    Promise.all([apiGet("/lecture-log"), apiGet("/teacher-load")])
-      .then(([mine, everyone]) => { setLogs(mine || []); setLoad(everyone || []); })
-      .catch((err) => toast(err.message, "err"))
-      .finally(() => setLoading(false));
+    Promise.all([api.get("/lectures/mine"), api.get("/insight/load")])
+      .then(([a, b]) => { setLogs(a); setLoad(b); })
+      .catch((e) => toast(e.message, "err"));
   }, []);
 
-  const hours = logs.reduce((sum, log) => sum + Number(log.actual_hours_taken), 0);
-  const busiest = load.reduce((max, row) => Math.max(max, Number(row.lectures_taken)), 0) || 1;
-  const substitutions = logs.filter((log) => log.regular_teacher !== me).length;
-
-  if (loading) {
-    return (
-      <Shell title="Lecture History"
-             subtitle="Every class you have conducted, and how the teaching load is spread across the department.">
-        <Card className="pad"><SkeletonRows rows={6} /></Card>
-      </Shell>
-    );
-  }
+  if (!logs) return <Shell title="Lecture history"><Card className="pad"><SkeletonRows rows={6} /></Card></Shell>;
+  const hours = logs.reduce((a, l) => a + l.hours, 0);
+  const forOthers = logs.filter((l) => !l.own_class).length;
+  const busiest = Math.max(1, ...(load ? load.staff.map((s) => s.weekly_hours) : [1]));
 
   return (
-    <Shell
-      title="Lecture History"
-      subtitle="Every class you have conducted, and how the teaching load is spread across the department."
-    >
+    <Shell title="Lecture history" subtitle="Every lecture you have recorded this term, and what each one covered.">
       <div className="stack" style={{ gap: 16 }}>
-        <div className="grid-auto">
-          {[
-            { value: logs.length, label: "Lectures conducted" },
-            { value: hours, label: "Hours taught" },
-            { value: substitutions, label: "Taken for others" },
-          ].map((stat, index) => (
-            <Card key={stat.label} className="pad" delay={index * 0.05}>
-              <Figure value={stat.value} />
-              <div className="stat-label">{stat.label}</div>
-            </Card>
-          ))}
+        <div className="stats">
+          <div className="stat"><Figure value={logs.length} /><div className="stat-label">Lectures</div></div>
+          <div className="stat"><Figure value={hours} /><div className="stat-label">Hours</div></div>
+          <div className="stat"><Figure value={forOthers} /><div className="stat-label">Covered for others</div></div>
         </div>
 
-        <Card className="pad" delay={0.15}>
-          <div className="row" style={{ gap: 9, marginBottom: 14 }}>
-            <HistoryIcon size={17} className="muted" />
-            <h2 style={{ margin: 0, fontSize: 15.5, fontWeight: 700 }}>What you taught</h2>
-          </div>
-
-          {logs.length === 0 ? (
-            <Empty>Nothing yet. Open a lecture on your timetable and mark it conducted.</Empty>
-          ) : (
-            <div className="table-wrap">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Date</th><th>Course</th><th>Class</th>
-                    <th>Time</th><th>Room</th><th>Hours</th><th>Type</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {logs.map((log) => (
-                    <tr key={log.lecture_log_id}>
-                      <td>{shortDate(log.lecture_date)}</td>
-                      <td className="bold">{log.course_code}</td>
-                      <td className="muted">
-                        Sec {log.section_name}{log.lab_batch_code ? " / " + log.lab_batch_code : ""}
-                      </td>
-                      <td className="muted">{log.start_time}–{log.end_time}</td>
-                      <td className="muted">{log.room_number}</td>
-                      <td>{Number(log.actual_hours_taken)}</td>
-                      <td>
-                        {log.regular_teacher === me
-                          ? <span className="tag">Own class</span>
-                          : <span className="tag tag-pine">Covered for {log.regular_teacher.split(" ")[0]}</span>}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+        <Card className="pad">
+          {logs.length === 0 ? <Empty>Nothing recorded yet. Open a lecture on your timetable after it happens.</Empty> : (
+            <div className="table-wrap"><table className="table">
+              <thead><tr><th>Date</th><th>Lecture</th><th>Hours</th><th>Covered</th><th /></tr></thead>
+              <tbody>{logs.map((l) => (
+                <tr key={l.log_id}>
+                  <td>{shortDate(l.lecture_date)}<div className="tiny faint mono">{l.start_time}</div></td>
+                  <td><b>{l.subject_code}</b>{l.lab_batch_code ? " · " + l.lab_batch_code : ""}
+                    <div className="tiny faint">{l.class_label} · {l.room_code}</div></td>
+                  <td>{l.hours}</td>
+                  <td className="tiny muted" style={{ maxWidth: 360 }}>{l.covered || "—"}</td>
+                  <td>{l.own_class ? <span className="tag">Own</span>
+                                   : <span className="tag tag-pine">For {l.regular_teacher.split(" ")[0]}</span>}</td>
+                </tr>))}
+              </tbody></table></div>
           )}
         </Card>
 
-        <Card className="pad" delay={0.2}>
-          <div className="row" style={{ gap: 9, marginBottom: 3 }}>
-            <Scale size={17} className="muted" />
-            <h2 style={{ margin: 0, fontSize: 15.5, fontWeight: 700 }}>Teaching load</h2>
-          </div>
-          <p className="page-sub" style={{ marginBottom: 16 }}>
-            When a lecture is handed over without choosing anyone, the system walks
-            down this list and offers it to the first teacher who is free at that
-            hour — so the extra work spreads out instead of landing on one person.
-          </p>
-
-          <div className="stack" style={{ gap: 10 }}>
-            {load.map((row, index) => (
-              <motion.div key={row.faculty_id} className="row" style={{ gap: 11 }}
-                          initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: index * 0.035 }}>
-                <span className="avatar" style={{ width: 30, height: 30, fontSize: 11 }}>
-                  {initials(row.name)}
-                </span>
-                <span style={{ flex: 1, minWidth: 0 }}>
-                  <span className="between" style={{ marginBottom: 4 }}>
-                    <span className={row.name === me ? "bold" : ""} style={{ fontSize: 13 }}>
-                      {row.name}{row.name === me && <span className="faint"> (you)</span>}
+        {load && load.staff.length > 0 && (
+          <Card className="pad" delay={0.06}>
+            <h2 className="section-title">Teaching load</h2>
+            <p className="page-sub" style={{ marginBottom: 16 }}>
+              Scheduled hours a week against each colleague's contract, for the classes you teach.
+            </p>
+            <div className="stack" style={{ gap: 11 }}>
+              {load.staff.map((s, i) => (
+                <motion.div key={s.staff_id} className="row" style={{ gap: 11 }}
+                            initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.03 }}>
+                  <span className="avatar">{initials(s.name)}</span>
+                  <span style={{ flex: 1, minWidth: 0 }}>
+                    <span className="between" style={{ marginBottom: 4 }}>
+                      <span style={{ fontSize: 13, fontWeight: s.staff_id === me.staff_id ? 600 : 400 }}>
+                        {s.name}{s.staff_id === me.staff_id && <span className="faint"> (you)</span>}</span>
+                      <span className="tiny faint">{s.weekly_hours}/{s.max_weekly_hours} hrs</span>
                     </span>
-                    <span className="tiny faint">
-                      {row.lectures_taken} lectures · {Number(row.hours_taken)} hrs
-                    </span>
+                    <Bar percent={(s.weekly_hours / busiest) * 100} />
                   </span>
-                  <Bar percent={(Number(row.lectures_taken) / busiest) * 100} />
-                </span>
-              </motion.div>
-            ))}
-          </div>
-        </Card>
+                </motion.div>
+              ))}
+            </div>
+          </Card>
+        )}
       </div>
     </Shell>
   );
 }
-
-export default History;

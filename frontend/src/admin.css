@@ -1,0 +1,135 @@
+/* ==========================================================================
+   Additions for the multi-role system. Same rules as styles.css: paper and
+   ink, hairlines, colour only for meaning.
+   ========================================================================== */
+
+.page-wide { max-width: 1480px; }
+
+/* --- role switcher ------------------------------------------------------ */
+.role-switch {
+  display: flex; align-items: center; gap: 10px;
+  padding: 5px 10px 5px 12px; border: 1px solid var(--rule-firm);
+  border-radius: var(--r-s); background: var(--card); cursor: pointer; font: inherit;
+  transition: border-color 0.18s var(--ease), transform 0.12s var(--ease);
+}
+.role-switch:hover { border-color: var(--ink-4); transform: translateY(-1px); }
+.role-switch:active { transform: scale(0.98); }
+.role-switch-label { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.2; }
+.role-switch-name { font-size: 12.5px; font-weight: 600; color: var(--ink); }
+
+/* --- stat strip --------------------------------------------------------- */
+/* flex rather than grid: when the stats wrap, the last row stretches to fill
+   the width instead of leaving empty cells showing the rule colour */
+.stats { display: flex; flex-wrap: wrap; gap: 1px; background: var(--rule); border: 1px solid var(--rule);
+         border-radius: var(--r); overflow: hidden; }
+.stat { background: var(--card); padding: 16px 18px; flex: 1 1 130px; min-width: 0; }
+.stat .figure { font-size: 28px; }
+.stat-note { font-size: 11.5px; color: var(--ink-3); margin-top: 2px; }
+
+/* --- two-column dashboard ---------------------------------------------- */
+.split { display: grid; gap: 16px; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); align-items: start; }
+@media (max-width: 1000px) { .split { grid-template-columns: 1fr; } }
+
+/* --- a lecture line (today's list, changes) ---------------------------- */
+.lecture {
+  display: grid; grid-template-columns: 58px 1fr auto; gap: 14px; align-items: center;
+  padding: 11px 4px; border-bottom: 1px solid var(--rule);
+}
+.lecture:last-child { border-bottom: none; }
+.lecture-time { font-family: var(--mono); font-size: 11.5px; color: var(--ink-3); line-height: 1.35; }
+
+/* --- admin layout ------------------------------------------------------- */
+.admin { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 28px; align-items: start; }
+@media (max-width: 860px) { .admin { grid-template-columns: 1fr; } }
+
+.admin-nav { position: sticky; top: 76px; display: flex; flex-direction: column; gap: 1px; }
+.admin-nav a {
+  position: relative; display: flex; align-items: center; gap: 9px;
+  padding: 8px 12px; border-radius: var(--r-s); font-size: 13px; color: var(--ink-2);
+  transition: background 0.14s var(--ease), color 0.14s var(--ease), padding-left 0.18s var(--ease);
+}
+.admin-nav a:hover { background: var(--card-sunk); color: var(--ink); padding-left: 15px; }
+.admin-nav a.on { background: var(--card); color: var(--ink); font-weight: 600;
+                  box-shadow: inset 2px 0 0 var(--ink); }
+.admin-nav .group { margin: 14px 12px 4px; }
+
+/* --- tabs (inside a page) ---------------------------------------------- */
+.tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--rule-firm); margin-bottom: 20px; flex-wrap: wrap; }
+.tab {
+  position: relative; padding: 9px 13px; border: none; background: none; cursor: pointer;
+  font: inherit; font-size: 13px; color: var(--ink-2);
+  display: flex; align-items: center; gap: 7px; transition: color 0.15s var(--ease);
+}
+.tab:hover { color: var(--ink); }
+.tab.on { color: var(--ink); font-weight: 550; }
+.tab .count { font-size: 10.5px; padding: 0 6px; border-radius: 9px; background: var(--card-sunk);
+              border: 1px solid var(--rule); color: var(--ink-3); }
+
+/* --- forms -------------------------------------------------------------- */
+.form-grid { display: grid; gap: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.form-grid .full { grid-column: 1 / -1; }
+@media (max-width: 560px) { .form-grid { grid-template-columns: 1fr; } }
+
+.check { display: flex; align-items: center; gap: 9px; font-size: 13px; cursor: pointer; user-select: none; }
+.check input { width: 15px; height: 15px; accent-color: var(--ink); cursor: pointer; }
+
+/* --- data table extras -------------------------------------------------- */
+.table td.actions { text-align: right; white-space: nowrap; }
+.table td.actions .btn + .btn { margin-left: 6px; }
+.row-muted td { color: var(--ink-3); }
+.toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px;
+           margin-bottom: 14px; flex-wrap: wrap; }
+.search { max-width: 280px; }
+
+/* role pills on a staff row */
+.pills { display: flex; flex-wrap: wrap; gap: 5px; }
+.pill {
+  display: inline-flex; align-items: center; gap: 5px; padding: 2px 4px 2px 8px;
+  border: 1px solid var(--rule-firm); border-radius: 12px; font-size: 11px; color: var(--ink-2);
+  background: var(--card);
+}
+.pill button { border: none; background: none; cursor: pointer; color: var(--ink-4); padding: 0 2px;
+               display: grid; place-items: center; border-radius: 50%; transition: color 0.12s, background 0.12s; }
+.pill button:hover { color: var(--oxblood); background: var(--oxblood-bg); }
+
+/* --- setup checklist ---------------------------------------------------- */
+.checklist-item { display: grid; grid-template-columns: 26px 1fr auto; gap: 12px; padding: 13px 4px;
+                  border-bottom: 1px solid var(--rule); align-items: start; }
+.checklist-item:last-child { border-bottom: none; }
+.tickmark { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; margin-top: 1px; }
+.tickmark-ok { background: var(--pine-bg); color: var(--pine); border: 1px solid var(--pine-line); }
+.tickmark-todo { background: var(--ochre-bg); color: var(--ochre); border: 1px solid var(--ochre-line); }
+
+/* --- class cards on the coordinator view ------------------------------ */
+.class-card-bands { display: flex; gap: 3px; height: 6px; border-radius: 3px; overflow: hidden; margin: 12px 0 8px; }
+.class-card-bands span { height: 100%; }
+
+/* --- syllabus editor ---------------------------------------------------- */
+.editor-row { display: flex; align-items: center; gap: 8px; padding: 5px 6px; border-radius: var(--r-s); }
+.editor-row:hover { background: var(--card-sunk); }
+.editor-row .grow { flex: 1; min-width: 0; }
+.editor-row .ghost { opacity: 0; transition: opacity 0.12s; }
+.editor-row:hover .ghost { opacity: 1; }
+.inline-input { border: 1px solid transparent; background: transparent; font: inherit; color: inherit;
+                padding: 3px 6px; border-radius: 3px; width: 100%; }
+.inline-input:hover { border-color: var(--rule); }
+.inline-input:focus { outline: none; border-color: var(--ink); background: var(--card); }
+
+/* --- timetable editor cells -------------------------------------------- */
+.tt-add { display: grid; place-items: center; min-height: 34px; border: 1px dashed transparent;
+          border-radius: var(--r-x); color: var(--ink-4); cursor: pointer;
+          transition: border-color 0.14s, color 0.14s, background 0.14s; }
+.tt-cell:hover .tt-add { border-color: var(--rule-firm); color: var(--ink-3); }
+.tt-add:hover { background: var(--card-sunk); color: var(--ink) !important; }
+
+/* --- one-time password reveal ------------------------------------------ */
+.secret { font-family: var(--mono); font-size: 15px; letter-spacing: 0.02em; padding: 12px 14px;
+          background: var(--card-sunk); border: 1px dashed var(--rule-firm); border-radius: var(--r-s);
+          display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+
+/* --- inline notices ----------------------------------------------------- */
+.notice { padding: 9px 12px; border-radius: var(--r-s); font-size: 12.5px; border: 1px solid; }
+.notice-bad  { color: var(--oxblood); background: var(--oxblood-bg); border-color: var(--oxblood-line); }
+.notice-warn { color: var(--ochre); background: var(--ochre-bg); border-color: var(--ochre-line); }
+.notice-good { color: var(--pine); background: var(--pine-bg); border-color: var(--pine-line); }
+.notice-plain { color: var(--ink-2); background: var(--card-sunk); border-color: var(--rule); }
