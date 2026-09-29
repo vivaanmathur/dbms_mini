@@ -13,3 +13,6 @@ dist/
 
 # macOS
 .DS_Store
+
+# local-only secrets
+*.local.md
