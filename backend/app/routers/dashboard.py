@@ -18,7 +18,7 @@ from app.routers.insight import attention, risk
 from app.routers.syllabus import for_class, mine as my_syllabus
 from app.security import (admin_only, require_section, sections_for_roles,
                           staff_only, student_only, teaching_only)
-from app.sessions import dated_day, dated_week, makeups_between, weekly_slots
+from app.sessions import FOR_STUDENT, dated_day, dated_week, makeups_between, weekly_slots
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboards"])
 
@@ -279,7 +279,7 @@ def student(me=Depends(student_only)):
         FROM student s LEFT JOIN lab_batch lb ON lb.lab_batch_id = s.lab_batch_id
         WHERE s.student_id = %s
         """, (me.student_id,))
-    where = "v.section_id = %s AND (v.lab_batch_id IS NULL OR v.lab_batch_id = %s)"
+    where = FOR_STUDENT
     values = (who["section_id"], who["lab_batch_id"])
 
     # anything this week that is not going ahead as timetabled

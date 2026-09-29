@@ -44,7 +44,10 @@ subject                 defined once
   └─ offering           that subject, offered to one class, for one term
        └─ teaching      who teaches it — the WHOLE CLASS, or ONE LAB BATCH.
                         Never a mix for the same subject.
-            └─ session  when and where it meets each week
+            └─ session  when and where it meets each week: a lecture,
+                        tutorial, practical or evaluation — for the
+                        teaching's own audience, or for chosen batches
+                        (an evaluation of G1 and G2 only)
 ```
 
 A subject can be offered to many classes. For each class it is taught either
@@ -84,17 +87,21 @@ choose its own password at first sign-in.
 ## What is real, and what is not
 
 **Real — from the teammate's original data** (`backend/sql/legacy/`):
-the department, the programme, the ten faculty, the twelve subjects, the ten
-rooms, and the sixteen weekly sessions of SY AI&DS G. Who teaches which class
-or batch is read straight off those sessions.
+the department, the programme, the faculty, the subjects and the rooms.
 
-**That timetable is incomplete**, and is loaded as it is rather than padded
-out. The admin setup checklist lists exactly what is missing:
+**Real — the Panel G timetable** (SY AI&DS G, 2026-27 odd semester): all 33
+weekly sessions, including the evaluations and the CNM tutorial. Read off the
+issued timetable, with these judgement calls where it was not explicit
+(all in `backend/scripts/seed.py`, `TIMETABLE`):
 
-- RIDE and UE1 have no teacher
-- OSC and SCHIE have a teacher but no sessions on the timetable
-- DBMSL has teachers for G2 and G3, but not G1
-- there is nothing on Fridays
+- DSL batches follow the order the teachers are listed: G1 Patil, G2 Karande,
+  G3 Kulkarni. DBMSL: G2 Betgeri, G1 and G3 Mitkari
+- evaluations are run by the subject's teacher; the DS-I evaluation of G3
+  (at the same hour as G1 and G2's) by Kulkarni, its lab teacher
+- ESD's teacher is recorded as "Sakshi" with no surname or email, and no
+  login until an admin completes the record
+- UE-I (Sat afternoon) has no teacher and is left unassigned; Mentor-Mentee
+  hours are not scheduled; RIDE is not offered to Panel G this semester
 
 **A template** — the syllabus units, topics and experiments for each subject.
 They are a reasonable starting point, meant to be corrected by the teachers
@@ -117,13 +124,13 @@ application — so they hold no matter what writes to it.
 
 | | |
 |---|---|
-| **25 tables** | organisation, calendar, classes, people, teaching, timetable, cancellations, cover, make-ups, lecture log, syllabus, audit |
+| **26 tables** | organisation, calendar, classes, people, teaching, timetable, cancellations, cover, make-ups, lecture log, syllabus, audit |
 | **CHECK constraints** | a login belongs to exactly one staff member or student; each role has exactly the scope it needs; a syllabus tick points at exactly one subtopic or experiment; times and hours are sane |
 | **Generated columns + unique keys** | one current term; one class teacher per class; one whole-class teacher per subject; at most one live cover request per cancellation; no duplicate roles |
 | **7 triggers** | refuse mixing whole-class and per-batch teaching; keep a student's batch inside their class; refuse a lecture logged on the wrong weekday or outside the term; keep a cancellation's status in step with cover and make-ups |
-| **`sp_save_slot`** | the only way a session is created or moved. Refuses the teacher double-booked — by person, across every subject they teach — the room over capacity, students already busy at class or batch level, and a practical outside a lab |
+| **`sp_save_slot`** | the only way a session is created or moved. Refuses the teacher double-booked — by person, across every subject they teach — the room over capacity, students already busy (compared by who actually attends — a G3 evaluation does not block a G1 lab), and a practical outside a lab |
 | **Functions** | `fn_class_label`, `fn_delivered_hours` (regular lectures plus make-ups actually held) |
-| **4 views** | `vw_class`, `vw_timetable`, `vw_assignment_progress`, `vw_staff_load` |
+| **5 views** | `vw_class`, `vw_slot_audience` (who attends each session), `vw_timetable`, `vw_assignment_progress`, `vw_staff_load` |
 
 `sp_save_slot` replaces the original `sp_schedule_slot`, which checked teacher
 clashes by teacher-and-subject pairing — so a teacher of two subjects could be

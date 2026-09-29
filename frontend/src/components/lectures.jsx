@@ -20,9 +20,14 @@ export function StateTag({ state }) {
   return <span className={s.tag}>{s.label}</span>;
 }
 
-/* "DBMS · G2" */
+/* A session that is not an ordinary lecture or lab says what it is. */
+export const SESSION_KIND = { TUTORIAL: "Tutorial", EVALUATION: "Evaluation" };
+
+/* "DBMS · G2", "DBMS evaluation · G1, G2" */
 export function subjectLabel(l) {
-  return l.subject_code + (l.lab_batch_code ? " · " + l.lab_batch_code : "");
+  const kind = SESSION_KIND[l.session_type];
+  return l.subject_code + (kind ? " " + kind.toLowerCase() : "")
+    + (l.lab_batch_code ? " · " + l.lab_batch_code : "");
 }
 
 /* One line in a list of lectures — today's classes, this week's changes. */

@@ -291,10 +291,27 @@ CREATE TABLE timetable_slot (
   day_of_week    ENUM('MON','TUE','WED','THU','FRI','SAT') NOT NULL,
   start_time     TIME NOT NULL,
   end_time       TIME NOT NULL,
+  -- what kind of session this is. A PRACTICAL must be held in a lab; an
+  -- EVALUATION of a lab subject can be held in an ordinary classroom.
+  session_type   ENUM('LECTURE','TUTORIAL','PRACTICAL','EVALUATION') NOT NULL DEFAULT 'LECTURE',
   CONSTRAINT fk_slot_assignment FOREIGN KEY (assignment_id) REFERENCES teaching_assignment(assignment_id),
   CONSTRAINT fk_slot_room       FOREIGN KEY (room_id)       REFERENCES room(room_id),
   CONSTRAINT chk_slot_times CHECK (end_time > start_time),
   KEY ix_slot_day_time (day_of_week, start_time)
+) ENGINE=InnoDB;
+
+-- Who attends a session, when it is not simply the teaching assignment's own
+-- audience. Most sessions have no rows here: they are for the whole class, or
+-- for the one lab batch their assignment covers. Rows narrow or widen that —
+-- "DBMS evaluation, G1 and G2 only", or "OOP lab evaluation, all batches
+-- together". vw_slot_audience resolves every session to the batches it
+-- actually holds.
+CREATE TABLE slot_batch (
+  slot_id       BIGINT UNSIGNED NOT NULL,
+  lab_batch_id  BIGINT UNSIGNED NOT NULL,
+  PRIMARY KEY (slot_id, lab_batch_id),
+  CONSTRAINT fk_slot_batch_slot  FOREIGN KEY (slot_id) REFERENCES timetable_slot(slot_id) ON DELETE CASCADE,
+  CONSTRAINT fk_slot_batch_batch FOREIGN KEY (lab_batch_id) REFERENCES lab_batch(lab_batch_id)
 ) ENGINE=InnoDB;
 
 -- ---------------------------------------------------------------------------

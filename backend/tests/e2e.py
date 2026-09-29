@@ -161,7 +161,8 @@ st, sd = call("GET", "/dashboard/student", student)
 check("student dashboard loads", st == 200, sd)
 st, wk = call("GET", "/timetable/mine?week_start=2026-09-28", student)
 batches = {x.get("lab_batch_code") for x in wk["sessions"]}
-check("a G1 student sees only G1 labs", batches <= {None, "G1"}, batches)
+check("a G1 student sees only sessions G1 attends", all(b is None or "G1" in b.split(", ") for b in batches), batches)
+check("including the evaluations G1 shares with other batches", "G1, G2" in batches, batches)
 
 print("\n=== recovery for a lecture nobody takes ===")
 st, att = call("GET", "/insight/attention", coord)
@@ -209,7 +210,7 @@ st, e = call("POST", "/admin/timetable", admin, {"assignment_id": asg["assignmen
               "day_of_week": "MON", "start_time": "09:30", "end_time": "10:30"})
 check("clash refused: she teaches G at that hour", st == 400 and "teacher" in e["detail"], e); print("        ", e["detail"])
 st, ok_slot = call("POST", "/admin/timetable", admin, {"assignment_id": asg["assignment_id"], "room_id": rooms["VY114"]["room_id"],
-              "day_of_week": "TUE", "start_time": "09:30", "end_time": "10:30"})
+              "day_of_week": "WED", "start_time": "10:45", "end_time": "11:45"})
 check("a free hour is accepted", st == 200, ok_slot)
 st, e = call("POST", f"/admin/staff/{staff['FAC-SMITKARI']['staff_id']}/roles", admin, {"role": "CLASS_TEACHER", "section_id": sec})
 check("a second class teacher for G refused, with the name", st == 400 and "already" in e["detail"], e); print("        ", e["detail"])

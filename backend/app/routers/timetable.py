@@ -7,7 +7,7 @@ from app.calendar import (current_term, parse_date, resolve_week, week_dates,
                           week_header)
 from app.db import fetch_all, fetch_one, placeholders
 from app.security import require_section, signed_in
-from app.sessions import dated_day, dated_week, makeups_between, weekly_slots
+from app.sessions import FOR_STUDENT, dated_day, dated_week, makeups_between, weekly_slots
 
 router = APIRouter(tags=["Timetable"])
 
@@ -42,9 +42,8 @@ def _student_scope(me):
                     (me.student_id,))
     if row is None:
         raise HTTPException(404, "Your student record could not be found.")
-    # the whole class, plus only this student's own batch in a lab hour
-    where = "v.section_id = %s AND (v.lab_batch_id IS NULL OR v.lab_batch_id = %s)"
-    return where, (row["section_id"], row["lab_batch_id"])
+    # the whole class, plus only the sessions their own batch attends
+    return FOR_STUDENT, (row["section_id"], row["lab_batch_id"])
 
 
 @router.get("/timetable/mine")

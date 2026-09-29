@@ -21,12 +21,20 @@ from app.calendar import DAY_INDEX, week_dates
 from app.db import fetch_all, placeholders
 
 SLOT_COLUMNS = """
-    v.slot_id, v.day_of_week, v.start_time, v.end_time,
+    v.slot_id, v.day_of_week, v.start_time, v.end_time, v.session_type,
     v.assignment_id, v.lab_batch_id, v.lab_batch_code, v.offering_id,
     v.subject_id, v.subject_code, v.subject_name, v.subject_type,
     v.section_id, v.class_label,
     v.staff_id, v.teacher_name, v.room_id, v.room_code, v.room_type
 """
+
+
+# What one student attends: sessions of their class whose audience is the
+# whole class or includes their batch. Values: (section_id, lab_batch_id).
+FOR_STUDENT = (
+    "v.section_id = %s AND EXISTS (SELECT 1 FROM vw_slot_audience a "
+    "WHERE a.slot_id = v.slot_id AND (a.lab_batch_id IS NULL OR a.lab_batch_id = %s))"
+)
 
 
 def weekly_slots(where, values=()):
@@ -151,7 +159,7 @@ def makeups_between(where, values, first_date, last_date):
     rows = fetch_all(
         f"""
         SELECT m.makeup_id, m.session_date AS date, m.start_time, m.end_time, m.status,
-               v.slot_id, v.assignment_id, v.lab_batch_id, v.lab_batch_code,
+               v.slot_id, v.assignment_id, v.lab_batch_id, v.lab_batch_code, v.session_type,
                v.subject_id, v.subject_code, v.subject_name, v.subject_type,
                v.section_id, v.class_label, m.staff_id,
                CONCAT(st.first_name, ' ', st.last_name) AS teacher_name,

@@ -24,9 +24,13 @@ def editor(section_id: int, me=Depends(admin_only)):
     return {
         "class": fetch_one("SELECT * FROM vw_class WHERE section_id = %s", (section_id,)),
         "sessions": fetch_all(
-            "SELECT * FROM vw_timetable WHERE section_id = %s AND term_id = %s "
-            "ORDER BY FIELD(day_of_week,'MON','TUE','WED','THU','FRI','SAT'), start_time, lab_batch_code",
+            "SELECT v.*, (SELECT GROUP_CONCAT(sb.lab_batch_id) FROM slot_batch sb "
+            "             WHERE sb.slot_id = v.slot_id) AS batch_ids "
+            "FROM vw_timetable v WHERE v.section_id = %s AND v.term_id = %s "
+            "ORDER BY FIELD(v.day_of_week,'MON','TUE','WED','THU','FRI','SAT'), v.start_time, v.lab_batch_code",
             (section_id, term["term_id"])),
+        "batches": fetch_all("SELECT lab_batch_id, code FROM lab_batch WHERE section_id = %s ORDER BY code",
+                             (section_id,)),
         "assignments": fetch_all(
             """
             SELECT ta.assignment_id, sub.code AS subject_code, sub.name AS subject_name, sub.subject_type,
@@ -51,22 +55,36 @@ class SlotIn(BaseModel):
     day_of_week: str
     start_time: str
     end_time: str
+    session_type: str | None = None     # LECTURE, TUTORIAL, PRACTICAL or EVALUATION
+    batch_ids: list[int] = []           # empty: the assignment's own audience
+
+
+def _save(slot_id, data):
+    kind = data.session_type
+    if not kind:
+        row = fetch_one("SELECT sub.subject_type FROM teaching_assignment ta "
+                        "JOIN subject_offering so ON so.offering_id = ta.offering_id "
+                        "JOIN subject sub ON sub.subject_id = so.subject_id WHERE ta.assignment_id = %s",
+                        (data.assignment_id,))
+        kind = "PRACTICAL" if row and row["subject_type"] == "PRACTICAL" else "LECTURE"
+    batches = ",".join(str(b) for b in sorted(set(data.batch_ids)))
+    return call("sp_save_slot", (slot_id, data.assignment_id, data.room_id, data.day_of_week.upper(),
+                                 data.start_time, data.end_time, kind.upper(), batches))[0]["slot_id"]
 
 
 def _describe(slot_id):
-    row = fetch_one("SELECT subject_code, lab_batch_code, day_of_week, start_time, room_code "
+    row = fetch_one("SELECT subject_code, lab_batch_code, session_type, day_of_week, start_time, room_code "
                     "FROM vw_timetable WHERE slot_id = %s", (slot_id,))
     if row is None:
         return "a session"
     batch = f" {row['lab_batch_code']}" if row["lab_batch_code"] else ""
-    return f"{row['subject_code']}{batch} {row['day_of_week']} {row['start_time']} in {row['room_code']}"
+    kind = f" {row['session_type'].lower()}" if row["session_type"] in ("TUTORIAL", "EVALUATION") else ""
+    return f"{row['subject_code']}{kind}{batch} {row['day_of_week']} {row['start_time']} in {row['room_code']}"
 
 
 @router.post("/timetable")
 def add_session(data: SlotIn, me=Depends(admin_only)):
-    rows = call("sp_save_slot", (None, data.assignment_id, data.room_id, data.day_of_week.upper(),
-                                 data.start_time, data.end_time))
-    slot_id = rows[0]["slot_id"]
+    slot_id = _save(None, data)
     audit.record(me, "CREATE", "timetable_slot", slot_id, f"Scheduled {_describe(slot_id)}")
     return {"slot_id": slot_id}
 
@@ -74,8 +92,7 @@ def add_session(data: SlotIn, me=Depends(admin_only)):
 @router.put("/timetable/{slot_id}")
 def move_session(slot_id: int, data: SlotIn, me=Depends(admin_only)):
     before = _describe(slot_id)
-    call("sp_save_slot", (slot_id, data.assignment_id, data.room_id, data.day_of_week.upper(),
-                          data.start_time, data.end_time))
+    _save(slot_id, data)
     audit.record(me, "UPDATE", "timetable_slot", slot_id, f"Moved {before} to {_describe(slot_id)}")
     return {"slot_id": slot_id}
 

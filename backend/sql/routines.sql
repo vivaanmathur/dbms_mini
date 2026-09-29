@@ -192,9 +192,15 @@ END$$
 --     teacher-and-subject pairing, so someone teaching two subjects could be
 --     booked into both at once.)
 --   * the ROOM already holding as many groups as it can take
---   * the STUDENTS already busy: the whole class in anything, or this batch
---     in anything, or the whole class if this is a batch session
---   * a practical held in a room that is not a lab
+--   * the STUDENTS already busy: two sessions of one class clash unless
+--     their audiences share no batch (a whole-class session shares every
+--     batch). See vw_slot_audience for how a session's audience is found.
+--   * a PRACTICAL session held in a room that is not a lab
+--
+-- p_type is LECTURE, TUTORIAL, PRACTICAL or EVALUATION.
+-- p_batches is '' for the assignment's own audience, or a comma-separated
+-- list of lab_batch ids ('3,4') when this session is for other batches —
+-- "DBMS evaluation, G1 and G2", "OOP lab evaluation, all batches together".
 --
 -- Pass p_slot_id = NULL to create; pass an id to move an existing slot (it
 -- is then excluded from its own clash checks). Returns the slot id.
@@ -205,7 +211,9 @@ CREATE PROCEDURE sp_save_slot(
   IN p_room_id        BIGINT UNSIGNED,
   IN p_day            VARCHAR(3),
   IN p_start          TIME,
-  IN p_end            TIME)
+  IN p_end            TIME,
+  IN p_type           VARCHAR(10),
+  IN p_batches        VARCHAR(255))
 BEGIN
   DECLARE v_staff    BIGINT UNSIGNED;
   DECLARE v_section  BIGINT UNSIGNED;
@@ -215,6 +223,9 @@ BEGIN
   DECLARE v_room_cap TINYINT;
   DECLARE v_in_room  INT;
   DECLARE v_self     BIGINT UNSIGNED DEFAULT IFNULL(p_slot_id, 0);
+  DECLARE v_batches  VARCHAR(255) DEFAULT REPLACE(IFNULL(p_batches, ''), ' ', '');
+  DECLARE v_whole    BOOLEAN;
+  DECLARE v_id       BIGINT UNSIGNED;
 
   IF p_end <= p_start THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'The session must end after it starts';
@@ -237,9 +248,24 @@ BEGIN
   IF v_room_type IS NULL THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'That room does not exist';
   END IF;
-  IF v_type = 'PRACTICAL' AND v_room_type <> 'LAB' THEN
+  IF p_type NOT IN ('LECTURE','TUTORIAL','PRACTICAL','EVALUATION') THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Unknown session type';
+  END IF;
+  IF p_type = 'PRACTICAL' AND v_type <> 'PRACTICAL' THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Only a practical subject can have a practical session';
+  END IF;
+  IF p_type = 'PRACTICAL' AND v_room_type <> 'LAB' THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'A practical has to be held in a lab';
   END IF;
+
+  -- every batch named must belong to this class
+  IF v_batches <> '' AND
+     (SELECT COUNT(*) FROM lab_batch
+       WHERE section_id = v_section AND FIND_IN_SET(lab_batch_id, v_batches))
+     <> LENGTH(v_batches) - LENGTH(REPLACE(v_batches, ',', '')) + 1 THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Those batches are not all in this class';
+  END IF;
+  SET v_whole = (v_batches = '' AND v_batch IS NULL);
 
   -- the teacher, across everything they teach
   IF EXISTS (
@@ -266,30 +292,39 @@ BEGIN
   -- the students
   IF EXISTS (
       SELECT 1 FROM timetable_slot ts
-        JOIN teaching_assignment ta ON ta.assignment_id = ts.assignment_id
-        JOIN subject_offering so    ON so.offering_id = ta.offering_id
-       WHERE so.section_id = v_section
+        JOIN vw_slot_audience a ON a.slot_id = ts.slot_id
+       WHERE a.section_id = v_section
          AND ts.day_of_week = p_day
          AND ts.start_time < p_end AND ts.end_time > p_start
          AND ts.slot_id <> v_self
-         AND (   v_batch IS NULL             -- a whole-class session clashes with anything
-              OR ta.lab_batch_id IS NULL     -- anything clashes with a whole-class session
-              OR ta.lab_batch_id = v_batch)  -- a batch clashes with itself
+         AND (   v_whole                     -- a whole-class session clashes with anything
+              OR a.lab_batch_id IS NULL      -- anything clashes with a whole-class session
+              OR (v_batches <> '' AND FIND_IN_SET(a.lab_batch_id, v_batches))
+              OR (v_batches =  '' AND a.lab_batch_id = v_batch))
      ) THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Those students already have a class at that time';
   END IF;
 
   IF p_slot_id IS NULL THEN
-    INSERT INTO timetable_slot (assignment_id, room_id, day_of_week, start_time, end_time)
-    VALUES (p_assignment_id, p_room_id, p_day, p_start, p_end);
-    SELECT LAST_INSERT_ID() AS slot_id;
+    INSERT INTO timetable_slot (assignment_id, room_id, day_of_week, start_time, end_time, session_type)
+    VALUES (p_assignment_id, p_room_id, p_day, p_start, p_end, p_type);
+    SET v_id = LAST_INSERT_ID();
   ELSE
     UPDATE timetable_slot
        SET assignment_id = p_assignment_id, room_id = p_room_id,
-           day_of_week = p_day, start_time = p_start, end_time = p_end
+           day_of_week = p_day, start_time = p_start, end_time = p_end,
+           session_type = p_type
      WHERE slot_id = p_slot_id;
-    SELECT p_slot_id AS slot_id;
+    SET v_id = p_slot_id;
   END IF;
+
+  DELETE FROM slot_batch WHERE slot_id = v_id;
+  IF v_batches <> '' THEN
+    INSERT INTO slot_batch (slot_id, lab_batch_id)
+    SELECT v_id, lab_batch_id FROM lab_batch
+     WHERE section_id = v_section AND FIND_IN_SET(lab_batch_id, v_batches);
+  END IF;
+  SELECT v_id AS slot_id;
 END$$
 
 DELIMITER ;
@@ -308,10 +343,34 @@ FROM section s
 JOIN program p    ON p.program_id = s.program_id
 JOIN department d ON d.department_id = p.department_id;
 
+-- Who attends each session: one row per batch, or a single row with a NULL
+-- batch when the whole class attends. A session's own slot_batch rows win;
+-- without them it has its teaching assignment's audience.
+CREATE OR REPLACE VIEW vw_slot_audience AS
+SELECT ts.slot_id, so.section_id, sb.lab_batch_id
+FROM timetable_slot ts
+JOIN teaching_assignment ta ON ta.assignment_id = ts.assignment_id
+JOIN subject_offering so    ON so.offering_id = ta.offering_id
+JOIN slot_batch sb          ON sb.slot_id = ts.slot_id
+UNION ALL
+SELECT ts.slot_id, so.section_id, ta.lab_batch_id
+FROM timetable_slot ts
+JOIN teaching_assignment ta ON ta.assignment_id = ts.assignment_id
+JOIN subject_offering so    ON so.offering_id = ta.offering_id
+WHERE NOT EXISTS (SELECT 1 FROM slot_batch sb WHERE sb.slot_id = ts.slot_id);
+
 -- The timetable, readable: names instead of ids.
+--   lab_batch_id    the one batch attending, or NULL for the whole class or
+--                   for several batches (so clash checks treat those as the
+--                   whole class, which is the safe side)
+--   lab_batch_code  who attends, for people: 'G1', 'G1, G2', or NULL
 CREATE OR REPLACE VIEW vw_timetable AS
-SELECT ts.slot_id, ts.day_of_week, ts.start_time, ts.end_time,
-       ta.assignment_id, ta.lab_batch_id, lb.code AS lab_batch_code,
+SELECT ts.slot_id, ts.day_of_week, ts.start_time, ts.end_time, ts.session_type,
+       ta.assignment_id,
+       CASE WHEN aud.n IS NULL THEN ta.lab_batch_id
+            WHEN aud.n = 1     THEN aud.only_id END AS lab_batch_id,
+       IFNULL(aud.codes, lb.code) AS lab_batch_code,
+       ta.lab_batch_id AS assignment_batch_id,
        so.offering_id, so.term_id,
        sub.subject_id, sub.code AS subject_code, sub.name AS subject_name,
        sub.subject_type,
@@ -325,7 +384,11 @@ JOIN subject sub            ON sub.subject_id = so.subject_id
 JOIN section s              ON s.section_id = so.section_id
 JOIN staff st               ON st.staff_id = ta.staff_id
 JOIN room r                 ON r.room_id = ts.room_id
-LEFT JOIN lab_batch lb      ON lb.lab_batch_id = ta.lab_batch_id;
+LEFT JOIN lab_batch lb      ON lb.lab_batch_id = ta.lab_batch_id
+LEFT JOIN (SELECT sb.slot_id, COUNT(*) AS n, MIN(sb.lab_batch_id) AS only_id,
+                  GROUP_CONCAT(b.code ORDER BY b.code SEPARATOR ', ') AS codes
+             FROM slot_batch sb JOIN lab_batch b ON b.lab_batch_id = sb.lab_batch_id
+            GROUP BY sb.slot_id) aud ON aud.slot_id = ts.slot_id;
 
 -- How far each teaching assignment is through its syllabus.
 CREATE OR REPLACE VIEW vw_assignment_progress AS

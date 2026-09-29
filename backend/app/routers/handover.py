@@ -88,6 +88,8 @@ def candidates_for(slot, lecture_date, exclude_ids):
         FROM staff st
         JOIN role_assignment ra ON ra.staff_id = st.staff_id AND ra.role = 'FACULTY'
         WHERE st.is_active = TRUE
+          -- only someone who can sign in can accept a request
+          AND EXISTS (SELECT 1 FROM app_user u WHERE u.staff_id = st.staff_id AND u.is_active = TRUE)
         """,
         (slot["subject_id"], slot["section_id"],
          slot["day_of_week"], slot["end_time"], slot["start_time"],
