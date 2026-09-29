@@ -31,19 +31,31 @@ BEGIN
 END$$
 
 -- ---------------------------------------------------------------------------
--- Hours actually delivered for one teaching assignment
+-- Hours actually delivered for one teaching assignment: regular lectures
+-- logged, plus make-up classes that took place. Without the second part a
+-- lost lecture that WAS recovered would still look lost.
 -- ---------------------------------------------------------------------------
 CREATE FUNCTION fn_delivered_hours(p_assignment_id BIGINT UNSIGNED)
 RETURNS DECIMAL(7,2)
 READS SQL DATA
 BEGIN
-  DECLARE v_hours DECIMAL(7,2);
+  DECLARE v_regular DECIMAL(7,2);
+  DECLARE v_makeup DECIMAL(7,2);
+
   SELECT COALESCE(SUM(ll.hours), 0)
-    INTO v_hours
+    INTO v_regular
     FROM lecture_log ll
     JOIN timetable_slot ts ON ts.slot_id = ll.slot_id
    WHERE ts.assignment_id = p_assignment_id;
-  RETURN v_hours;
+
+  SELECT COALESCE(SUM(TIME_TO_SEC(TIMEDIFF(m.end_time, m.start_time)) / 3600), 0)
+    INTO v_makeup
+    FROM makeup_session m
+    JOIN cancellation c    ON c.cancellation_id = m.cancellation_id
+    JOIN timetable_slot ts ON ts.slot_id = c.slot_id
+   WHERE ts.assignment_id = p_assignment_id AND m.status = 'DELIVERED';
+
+  RETURN v_regular + v_makeup;
 END$$
 
 -- ---------------------------------------------------------------------------

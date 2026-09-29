@@ -115,7 +115,7 @@ class Principal:
         oversight = [r for r in self.roles if r["role"] not in ("FACULTY",)]
         if not oversight:
             return False
-        return int(section_id) in _sections_for_roles(oversight)
+        return int(section_id) in sections_for_roles(oversight)
 
     def public(self):
         return {
@@ -130,7 +130,7 @@ class Principal:
         }
 
 
-def _sections_for_roles(roles):
+def sections_for_roles(roles):
     ids = set()
     for role in roles:
         kind = role["role"]
@@ -167,7 +167,7 @@ def _visible_sections(principal):
                         (principal.student_id,))
         return {int(row["section_id"])} if row else set()
 
-    ids = _sections_for_roles(principal.roles)
+    ids = sections_for_roles(principal.roles)
     if principal.has("FACULTY"):
         taught = fetch_all(
             """
