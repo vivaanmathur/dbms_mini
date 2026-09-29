@@ -44,8 +44,6 @@ def _make_pool():
         use_pure=True,
         time_zone="+05:30",
     )
-    if not config.DB_SSL:
-        options["ssl_disabled"] = True   # config.py only allows this locally
     return pooling.MySQLConnectionPool(**options)
 
 

@@ -24,12 +24,11 @@ DB_NAME = _required("DB_NAME")
 DB_USER = _required("DB_USER")
 DB_PASSWORD = _required("DB_PASSWORD")
 
-# Encryption to the database. It may only be switched off for a database on
-# this same machine; a remote database always gets TLS, because turning it
-# off there would send the password across the network in plain text.
-DB_SSL = os.getenv("DB_SSL", "on").lower() != "off"
-if not DB_SSL and DB_HOST not in ("127.0.0.1", "localhost", "::1"):
-    raise RuntimeError("DB_SSL=off is only allowed for a local database")
+# There is deliberately no setting to switch encryption to the database off.
+# Remotely it would send the password in plain text. Locally it breaks too:
+# MySQL 8+ signs users in with caching_sha2_password, which needs an encrypted
+# connection whenever its password cache is cold — after every restart of
+# MySQL — so an unencrypted app cannot connect until something else has.
 
 JWT_SECRET_KEY = _required("JWT_SECRET_KEY")
 JWT_ALGORITHM = "HS256"
