@@ -1,7 +1,7 @@
 """
 Continuity — lecture continuity for a university department.
 
-    uvicorn app.main:app --port 8001
+    uvicorn app.main:app --port 8000
 
 The API is grouped by who uses it:
     /auth         signing in

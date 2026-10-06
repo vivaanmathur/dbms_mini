@@ -60,4 +60,4 @@ Database errors come back as sentences. Messages raised by the triggers and
 straight through; duplicate keys, broken references and CHECK failures are
 translated in `db.py`.
 
-The API is self-documenting at http://localhost:8001/docs.
+The API is self-documenting at http://localhost:8000/docs.

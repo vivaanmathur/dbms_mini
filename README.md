@@ -58,20 +58,20 @@ that date only.
 
 ## Running it
 
-This is the `restructure` branch. It runs against its **own local database**,
-so `main` — which still uses the hosted database — keeps working untouched.
+It runs against a local MySQL database. The schema changed completely in the
+role-based rebuild, so the old hosted database is not compatible with it.
 
 ```bash
 cd backend
 ./scripts/setup_local_db.sh                          # database, user, .env, schema, routines
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 .venv/bin/python -m scripts.seed                     # wipes and loads the starting data
-.venv/bin/uvicorn app.main:app --port 8001
+.venv/bin/uvicorn app.main:app --port 8000
 
-cd ../frontend && npm install && npx vite --port 5174
+cd ../frontend && npm install && npx vite --port 5173
 ```
 
-Open http://localhost:5174. Needs a local MySQL 8+ (Homebrew's works as it
+Open http://localhost:5173. Needs a local MySQL 8+ (Homebrew's works as it
 comes). `backend/.env` holds the database login and is never committed.
 
 The setup script loads the triggers, procedures and views as the local `root`

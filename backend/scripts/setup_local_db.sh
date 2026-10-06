@@ -30,7 +30,7 @@ DB_USER=$USER_NAME
 DB_PASSWORD=$PASSWORD
 JWT_SECRET_KEY=$JWT
 JWT_EXPIRE_MINUTES=480
-CORS_ORIGINS=http://localhost:5174
+CORS_ORIGINS=http://localhost:5173
 ENV
   echo "Wrote backend/.env"
 fi

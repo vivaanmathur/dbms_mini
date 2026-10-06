@@ -5,6 +5,7 @@ import Shell from "../components/Shell.jsx";
 import RecoveryDialog from "../components/RecoveryDialog.jsx";
 import { LectureRow } from "../components/lectures.jsx";
 import { api } from "../api.js";
+import { oversees, useAuth } from "../auth.jsx";
 import { asYearMonthDay, Bar, Card, Empty, Figure, initials, shortDate, SkeletonRows, useToast } from "../ui.jsx";
 
 export const BAND = {
@@ -215,17 +216,24 @@ function DayPanel() {
 
 const TABS = [
   { id: "risk", label: "Syllabus risk", Icon: TriangleAlert },
-  { id: "arrange", label: "Needs arranging", Icon: Wand2 },
-  { id: "load", label: "Load and rooms", Icon: Scale },
+  { id: "arrange", label: "Needs arranging", Icon: Wand2, oversight: true },
+  { id: "load", label: "Load and rooms", Icon: Scale, oversight: true },
   { id: "day", label: "Day view", Icon: CalendarDays },
 ];
 
+/* Teachers see risk and the day view for the classes they teach; arranging
+   cover and reading colleagues' load is for the roles that oversee classes. */
 export default function Insights() {
+  const { me } = useAuth();
+  const overseer = oversees(me);
+  const tabs = TABS.filter((t) => overseer || !t.oversight);
   const [tab, setTab] = useState("risk");
   return (
-    <Shell title="Insights" subtitle="For the classes you oversee: will each finish its syllabus, what needs arranging, and how people and rooms are spread.">
+    <Shell title="Insights" subtitle={overseer
+      ? "For the classes you oversee: will each finish its syllabus, what needs arranging, and how people and rooms are spread."
+      : "For the classes you teach: will each subject finish its syllabus, and what actually happens on a given day."}>
       <div className="tabs">
-        {TABS.map(({ id, label, Icon }) => (
+        {tabs.map(({ id, label, Icon }) => (
           <button key={id} className={"tab" + (tab === id ? " on" : "")} onClick={() => setTab(id)}>
             <Icon size={14} /> {label}
             {tab === id && <motion.span layoutId="insight-tab" className="nav-rule" transition={{ duration: 0.22 }} />}

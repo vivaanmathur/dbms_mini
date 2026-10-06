@@ -2,7 +2,7 @@
 End-to-end check of every role, against a running backend.
 
     python -m scripts.seed          # a fresh database first — this test changes data
-    uvicorn app.main:app --port 8001
+    uvicorn app.main:app --port 8000
     python tests/e2e.py
     python -m scripts.seed          # and reset afterwards
 
@@ -15,7 +15,7 @@ Run it ONLY against the local development database. The scenario uses dates
 in the 2026-27 odd semester and assumes it is run during it.
 """
 import json, re, urllib.request, urllib.parse, urllib.error
-BASE = "http://localhost:8001"
+BASE = "http://localhost:8000"
 TEMP = re.search(r"^\s{4}(\S+)\s*$", open(__import__("os").path.join(__import__("os").path.dirname(__import__("os").path.dirname(__import__("os").path.abspath(__file__))), "SEED_CREDENTIALS.local.md")).read(), re.M).group(1)
 # a fresh password each run, meeting the rules: 10+ chars, mixed case, a digit
 NEW = "Test-" + __import__("secrets").token_hex(4) + "-Aa1"

@@ -17,7 +17,7 @@ function pagesFor(me) {
     pages.push({ to: "/syllabus", label: "Syllabus" });
     pages.push({ to: "/history", label: "History" });
   }
-  if (oversees(me)) pages.push({ to: "/insights", label: "Insights" });
+  if (teaching || oversees(me)) pages.push({ to: "/insights", label: "Insights" });
   if (hasRole(me, "ADMIN")) pages.push({ to: "/admin", label: "Admin" });
   return pages;
 }

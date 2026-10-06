@@ -32,4 +32,4 @@ src/
     Login, ChangePassword
 ```
 
-`src/config.js` points at the backend — port 8001 on this branch.
+`src/config.js` points at the backend — port 8000 (or `VITE_API_URL`).

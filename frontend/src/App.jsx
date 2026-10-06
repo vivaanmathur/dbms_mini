@@ -56,7 +56,7 @@ function Routed() {
         <Route path="/syllabus" element={<Allow when={isTeaching}><Syllabus /></Allow>} />
         <Route path="/syllabus/:assignmentId" element={<SyllabusDetail />} />
         <Route path="/history" element={<Allow when={isTeaching}><History /></Allow>} />
-        <Route path="/insights" element={<Allow when={oversees}><Insights /></Allow>} />
+        <Route path="/insights" element={<Allow when={(m) => oversees(m) || isTeaching(m)}><Insights /></Allow>} />
         <Route path="/admin/*" element={<Allow when={(m) => hasRole(m, "ADMIN")}><Admin /></Allow>} />
         <Route path="/account/password" element={<ChangePassword />} />
 
