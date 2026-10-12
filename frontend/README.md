@@ -2,7 +2,8 @@
 
 React (Vite), Framer Motion and lucide-react. No component library: every
 surface is defined in `src/styles.css` and `src/admin.css`. See the project
-README for what the system does and how to run it.
+README for what the system does, and
+[docs/SETUP.md](../docs/SETUP.md) to run it.
 
 The app asks the server who you are and builds itself from your roles: the
 pages in the top bar, the dashboards you can switch between, and what each

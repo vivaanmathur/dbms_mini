@@ -2,7 +2,8 @@
 
 FastAPI and plain, parameterised SQL (mysql-connector-python). No ORM: every
 query in the project can be read where it runs. See the project README for
-what the system does and how to run it.
+what the system does, and
+[docs/SETUP.md](../docs/SETUP.md) to run it.
 
 ```
 app/
@@ -26,11 +27,12 @@ sql/
   routines.sql   triggers, functions, procedures, views
   legacy/        the original prototype schema and data, for reference
 scripts/
-  setup_local_db.sh  create a local database from nothing
+  load_schema.py     load schema.sql and routines.sql into the database in .env
+  setup_local_db.sh  create a local MySQL database from nothing (macOS / Homebrew)
   seed.py            wipe and load the starting data
   syllabus_data.py   the syllabus template
 tests/
-  e2e.py         49 end-to-end checks across every role
+  e2e.py         50 end-to-end checks across every role
 ```
 
 ## How access works

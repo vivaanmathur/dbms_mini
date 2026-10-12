@@ -11,15 +11,23 @@ hands lectures over, accepts and declines cover, records lectures, books a
 make-up, and uses the admin console — then checks every result, including
 that each role is refused what it should not reach.
 
-Run it ONLY against the local development database. The scenario uses dates
-in the 2026-27 odd semester and assumes it is run during it.
+Run it only against a database you are happy to reset. Dates are worked out
+from today — last week for things that have happened, next week for things
+that have not — so it must be run during the current term.
 """
-import json, re, urllib.request, urllib.parse, urllib.error
+import datetime, json, re, urllib.request, urllib.parse, urllib.error
 BASE = "http://localhost:8000"
 TEMP = re.search(r"^\s{4}(\S+)\s*$", open(__import__("os").path.join(__import__("os").path.dirname(__import__("os").path.dirname(__import__("os").path.abspath(__file__))), "SEED_CREDENTIALS.local.md")).read(), re.M).group(1)
 # a fresh password each run, meeting the rules: 10+ chars, mixed case, a digit
 NEW = "Test-" + __import__("secrets").token_hex(4) + "-Aa1"
 ok = fail = 0
+
+_monday = datetime.date.today() - datetime.timedelta(days=datetime.date.today().weekday())
+def day(weeks, weekday):
+    """A date relative to this week: day(-1, 0) is last Monday, day(1, 1) next Tuesday."""
+    return (_monday + datetime.timedelta(weeks=weeks, days=weekday)).isoformat()
+PAST_MON, PAST_TUE = day(-1, 0), day(-1, 1)
+NEXT_MON, NEXT_TUE, AFTER_MON = day(1, 0), day(1, 1), day(2, 0)
 
 def call(method, path, token=None, body=None, form=None):
     data, headers = None, {}
@@ -83,18 +91,18 @@ check("coordinator cannot open administration", call("GET", "/admin/staff", coor
 check("admin can", call("GET", "/admin/staff", admin)[0] == 200)
 
 print("\n=== faculty: week, handing over to a chosen colleague ===")
-st, wk = call("GET", "/timetable/mine?week_start=2026-09-28", betgeri)
+st, wk = call("GET", f"/timetable/mine?week_start={PAST_MON}", betgeri)
 check("Betgeri's week loads", st == 200, wk)
 mine = {(s["day_of_week"], s["subject_code"], s.get("lab_batch_code")): s for s in wk["sessions"]}
 print("         her sessions:", sorted(f"{k[0]} {k[1]}{' '+k[2] if k[2] else ''}" for k in mine))
 lab = mine[("TUE", "DBMSL", "G2")]
-st, e = call("POST", "/handover", betgeri, {"slot_id": lab["slot_id"], "lecture_date": "2026-09-29", "reason": "x"})
-check("today's lab, already started, cannot be handed over", st == 400 and "already started" in e["detail"], e)
-st, c = call("GET", f"/handover/candidates?slot_id={lab['slot_id']}&lecture_date=2026-10-06", betgeri)
+st, e = call("POST", "/handover", betgeri, {"slot_id": lab["slot_id"], "lecture_date": PAST_TUE, "reason": "x"})
+check("a lab that has already happened cannot be handed over", st == 400 and "already started" in e["detail"], e)
+st, c = call("GET", f"/handover/candidates?slot_id={lab['slot_id']}&lecture_date={NEXT_TUE}", betgeri)
 top = c["candidates"][0]
 check("a teacher of the same subject is listed first", top["teaches_subject"] and top["name"] == "Shoma Mitkari", top)
 print(f"         first: {top['name']} — {top['reason']}")
-st, r = call("POST", "/handover", betgeri, {"slot_id": lab["slot_id"], "lecture_date": "2026-10-06",
+st, r = call("POST", "/handover", betgeri, {"slot_id": lab["slot_id"], "lecture_date": NEXT_TUE,
                                            "reason": "Workshop", "delegate_to_staff_id": top["staff_id"]})
 check("handed over to her", st == 200, r)
 mitkari = signin("shoma.mitkari@mitwpu.edu.in")
@@ -102,34 +110,34 @@ st, inc = call("GET", "/cover/incoming", mitkari)
 check("it reaches her", st == 200 and len(inc) == 1, inc)
 st, r = call("POST", f"/cover/{inc[0]['cover_id']}/accept", mitkari)
 check("she accepts", st == 200, r)
-st, wk = call("GET", "/timetable/mine?week_start=2026-10-05", betgeri)
+st, wk = call("GET", f"/timetable/mine?week_start={NEXT_MON}", betgeri)
 s = [x for x in wk["sessions"] if x["slot_id"] == lab["slot_id"]][0]
 check("Betgeri's grid shows it covered", s["state"] == "covered" and s["actual_teacher"] == "Shoma Mitkari", s["state"])
-st, wk = call("GET", "/timetable/mine?week_start=2026-10-05", mitkari)
+st, wk = call("GET", f"/timetable/mine?week_start={NEXT_MON}", mitkari)
 check("Mitkari's grid shows the cover", any(x.get("kind") == "cover" for x in wk["sessions"]))
-st, wk2 = call("GET", "/timetable/mine?week_start=2026-10-12", betgeri)
+st, wk2 = call("GET", f"/timetable/mine?week_start={AFTER_MON}", betgeri)
 check("and next week it is back to normal", all(x["state"] == "scheduled" for x in wk2["sessions"]))
 
 print("\n=== recording what was taught ===")
 st, opts = call("GET", f"/syllabus/lecture-options?slot_id={lab['slot_id']}", mitkari)
 exp = [o for o in opts if o["kind"] == "experiment"][:1]
-st, r = call("POST", "/lectures/conducted", mitkari, {"slot_id": lab["slot_id"], "lecture_date": "2026-10-06",
+st, r = call("POST", "/lectures/conducted", mitkari, {"slot_id": lab["slot_id"], "lecture_date": NEXT_TUE,
              "experiment_ids": [o["id"] for o in exp]})
 check("the cover teacher cannot log it before it happens", st == 400 and "finished" in r["detail"], r)
-st, r = call("POST", "/lectures/conducted", betgeri, {"slot_id": lab["slot_id"], "lecture_date": "2026-09-29",
+st, r = call("POST", "/lectures/conducted", betgeri, {"slot_id": lab["slot_id"], "lecture_date": PAST_TUE,
              "experiment_ids": [o["id"] for o in exp]})
-check("today's lab, now finished, is logged by its teacher with an experiment", st == 200, r)
+check("last week's lab is logged by its teacher with an experiment", st == 200, r)
 dbms = mine[("MON", "DBMS", None)]
 st, opts = call("GET", f"/syllabus/lecture-options?slot_id={dbms['slot_id']}", betgeri)
-st, r = call("POST", "/lectures/conducted", betgeri, {"slot_id": dbms["slot_id"], "lecture_date": "2026-09-28",
+st, r = call("POST", "/lectures/conducted", betgeri, {"slot_id": dbms["slot_id"], "lecture_date": PAST_MON,
              "remarks": "Intro", "subtopic_ids": [opts[0]["id"], opts[1]["id"]]})
 check("own lecture logged with two subtopics", st == 200, r)
-st, r = call("POST", "/lectures/conducted", betgeri, {"slot_id": dbms["slot_id"], "lecture_date": "2026-09-29"})
+st, r = call("POST", "/lectures/conducted", betgeri, {"slot_id": dbms["slot_id"], "lecture_date": PAST_TUE})
 check("logging on the wrong weekday refused", st == 400, r)
 
 print("\n=== decline passes it on; nobody free leaves it for a coordinator ===")
-mon_lab = [x for x in call("GET", "/timetable/mine?week_start=2026-10-05", mitkari)[1]["sessions"] if x["subject_code"] == "DBMSL"][0]
-st, r = call("POST", "/handover", mitkari, {"slot_id": mon_lab["slot_id"], "lecture_date": "2026-10-05", "reason": "Leave"})
+mon_lab = [x for x in call("GET", f"/timetable/mine?week_start={NEXT_MON}", mitkari)[1]["sessions"] if x["subject_code"] == "DBMSL"][0]
+st, r = call("POST", "/handover", mitkari, {"slot_id": mon_lab["slot_id"], "lecture_date": NEXT_MON, "reason": "Leave"})
 check("system picks someone", st == 200, r); print("        ", r["message"])
 first = r["message"].split("Sent to ")[1].split(" to accept")[0]
 emails = {"Santushti Betgeri": "santushti.betgeri", "Poonam Bhosale": "poonam.bhosale", "Manisha Patil": "manisha.patil",
@@ -159,7 +167,7 @@ check("risk is computed per subject and batch", st == 200 and rk["items"], rk); 
 print("\n=== student ===")
 st, sd = call("GET", "/dashboard/student", student)
 check("student dashboard loads", st == 200, sd)
-st, wk = call("GET", "/timetable/mine?week_start=2026-09-28", student)
+st, wk = call("GET", f"/timetable/mine?week_start={PAST_MON}", student)
 batches = {x.get("lab_batch_code") for x in wk["sessions"]}
 check("a G1 student sees only sessions G1 attends", all(b is None or "G1" in b.split(", ") for b in batches), batches)
 check("including the evaluations G1 shares with other batches", "G1, G2" in batches, batches)

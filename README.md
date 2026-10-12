@@ -7,6 +7,24 @@ responsible — whether every class is on course to finish its syllabus.
 Built for the Department of Computer Engineering and Technology (DCET), MIT
 World Peace University, starting with **SY AI&DS G (2026-27)**.
 
+FastAPI and plain SQL on MySQL / MariaDB (hosted on Hostinger), with a React
+frontend.
+
+## Documentation
+
+| | |
+|---|---|
+| [**Setup**](docs/SETUP.md) | running it day to day; a new setup step by step: the `.env` file, backend and frontend commands, signing in, troubleshooting |
+| [**Database**](docs/DATABASE.md) | every SQL statement the project uses, by kind: database setup, DCL, DDL, functions, procedures, triggers, views, DML, TCL |
+| [Backend](backend/README.md) | how the API is organised, how access is checked |
+| [Frontend](frontend/README.md) | how the interface is organised |
+| [Roadmap](docs/ROADMAP.md) | the direction an external reviewer suggested, and what has been built |
+| [Legacy](docs/legacy/) | notes on the original prototype's database |
+
+**Quick start** (already set up): `cd backend && .venv/bin/uvicorn app.main:app --port 8000`,
+and in a second terminal `cd frontend && npx vite --port 5173`. Then open
+http://localhost:5173.
+
 ---
 
 ## Who sees what
@@ -29,8 +47,9 @@ Students are entirely separate from staff. A login belongs to exactly one
 staff member or exactly one student — never both — and the database enforces
 it.
 
-Everyone with any oversight role also gets **Insights**: syllabus risk, what
-needs arranging, teaching load and room use, and a day view.
+Teachers get **Insights** for the classes they teach: syllabus risk and a
+day view. Anyone with an oversight role also sees what needs arranging, and
+teaching load and room use.
 
 ## The model
 
@@ -58,31 +77,9 @@ that date only.
 
 ## Running it
 
-It runs against a local MySQL database. The schema changed completely in the
-role-based rebuild, so the old hosted database is not compatible with it.
-
-```bash
-cd backend
-./scripts/setup_local_db.sh                          # database, user, .env, schema, routines
-python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
-.venv/bin/python -m scripts.seed                     # wipes and loads the starting data
-.venv/bin/uvicorn app.main:app --port 8000
-
-cd ../frontend && npm install && npx vite --port 5173
-```
-
-Open http://localhost:5173. Needs a local MySQL 8+ (Homebrew's works as it
-comes). `backend/.env` holds the database login and is never committed.
-
-The setup script loads the triggers, procedures and views as the local `root`
-user, because MySQL with binary logging on only lets a privileged account
-create functions. The app itself connects as its own restricted user.
-
-### Signing in
-
-`scripts.seed` writes every seeded account and one temporary password to
-`backend/SEED_CREDENTIALS.local.md`, which git ignores. Every account must
-choose its own password at first sign-in.
+See [docs/SETUP.md](docs/SETUP.md). Accounts and the temporary password are
+written to `backend/SEED_CREDENTIALS.local.md`, which git ignores. Everyone
+chooses their own password at first sign-in.
 
 ## What is real, and what is not
 
@@ -132,6 +129,8 @@ application — so they hold no matter what writes to it.
 | **Functions** | `fn_class_label`, `fn_delivered_hours` (regular lectures plus make-ups actually held) |
 | **5 views** | `vw_class`, `vw_slot_audience` (who attends each session), `vw_timetable`, `vw_assignment_progress`, `vw_staff_load` |
 
+Every statement is in [docs/DATABASE.md](docs/DATABASE.md).
+
 `sp_save_slot` replaces the original `sp_schedule_slot`, which checked teacher
 clashes by teacher-and-subject pairing — so a teacher of two subjects could be
 booked into both at once. That was a real bug in the original schema; four of
@@ -158,6 +157,6 @@ suitable room free — and soft rules only move the score.
 
 ## Testing
 
-`backend/tests/e2e.py` signs in as every role and checks 49 things end to
+`backend/tests/e2e.py` signs in as every role and checks 50 things end to
 end, including that each role is refused what it should not reach. It
 changes data, so run it against a fresh seed and reseed afterwards.
