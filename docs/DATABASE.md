@@ -7,6 +7,8 @@ procedures, triggers and views below are copied from
 actually gets loaded. The DML and TCL examples are the real statements the
 backend runs, from the file named with each one.
 
+For what each table means and how they connect, see [SCHEMA.md](SCHEMA.md).
+
 Works on **MySQL 8.0.16+** and **MariaDB 10.5+**. The live database is
 MariaDB 11.8 on Hostinger.
 

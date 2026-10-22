@@ -15,6 +15,7 @@ frontend.
 | | |
 |---|---|
 | [**Setup**](docs/SETUP.md) | running it day to day; a new setup step by step: the `.env` file, backend and frontend commands, signing in, troubleshooting |
+| [**Schema**](docs/SCHEMA.md) | every table and view: what it holds, its columns, keys and rules, and a diagram of how they connect |
 | [**Database**](docs/DATABASE.md) | every SQL statement the project uses, by kind: database setup, DCL, DDL, functions, procedures, triggers, views, DML, TCL |
 | [Backend](backend/README.md) | how the API is organised, how access is checked |
 | [Frontend](frontend/README.md) | how the interface is organised |
